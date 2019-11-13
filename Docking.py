@@ -14,7 +14,8 @@ class Dock:
                  siteing_method="ligand", template_ligand="",
                  fitness_fun="goldscore", rescore_fun="chemscore",
                  output_dir="", ndocks=10, site_radius=12.0,
-                 autoscale=10.0):
+                 autoscale=10.0, early_termination=True, configuration="",
+                 split_output=True):
         """
 
         :param protein_file: The file with the template protein. If it already contains ligands, they will be removed.
@@ -32,9 +33,18 @@ class Dock:
         :param site_radius: The radius tu be used when defining the binding site.
         :param autoscale: The speed of the docking - 100 is the slowest, while numbers close to 0 will result in faster
         runs.
+        :param early_termination: True is the computation can be terminated early.
+        :param configuration: gold.conf file, which can be imported. Mainly intended when applying soft potentials and
+        flexible side chains.
+        :param split_output: If true, output docking poses will be saved in separate files.
         """
-        self.docker = Docker()
-        self.settings = self.docker.settings
+        # Initiating the docker and the settings
+        if configuration:
+            self.settings = Docker.Settings.from_file(configuration)
+            self.docker = Docker(settings=self.settings)
+        else:
+            self.docker = Docker()
+            self.settings = self.docker.settings
 
         # Setting directory and file names
         if not output_dir:
@@ -50,7 +60,16 @@ class Dock:
             if not os.path.isdir(output_dir):
                 os.mkdir(output_dir)
             self.settings.output_directory = output_dir
-        self.settings.output_file = "Docking_results.mol2"
+
+        # Adding the settings file to the output directory
+        self.settings.output_format = str(Path(output_dir, "gold.conf").absolute)
+
+        # Setting the file names
+        self.settings.output_format = "mol2"
+        if split_output:
+            self.settings.output_file = ""
+        else:
+            self.settings.output_file = "Docking_results.mol2"
 
         # Checks if both scoring functions are the same (should not be).
         if fitness_fun == rescore_fun:
@@ -65,9 +84,10 @@ class Dock:
         # Other settings
         # Speed of the computation (lower => faster)
         self.settings.autoscale = autoscale
-        self.settings.early_termination = False
+        self.settings.early_termination = early_termination
 
         # Prepares the protein file and extracts the ligands present in it
+        self.settings.clear_protein_files()
         self.protein_file = protein_file
         self.ligands = self.prepare_protein()
 
@@ -79,6 +99,7 @@ class Dock:
          }[siteing_method]()
 
         # Setting the target ligand
+        self.settings.clear_ligand_files()
         self.settings.add_ligand_file(target_ligand, ndocks)
 
         self.results = self.docker.dock()
@@ -128,4 +149,10 @@ if __name__ == "__main__":
     _protein_file = "Protein.mol2"
     _protein_ligand_file = "Ligand.mol2"
     _ligand_file = "Molecule.mol2"
-    _dock = Dock(_protein_file, _ligand_file, template_ligand=_protein_ligand_file)
+    _dock = Dock(_protein_file,
+                 _ligand_file,
+                 template_ligand=_protein_ligand_file,
+                 ndocks=100,
+                 autoscale=100,
+                 configuration="api_gold_UI.conf",
+                 split_output=False)
