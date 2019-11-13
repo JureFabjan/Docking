@@ -2,4 +2,4 @@
 *.pdb
 *.mol2
 *.conf
-Results_00
+Results*
