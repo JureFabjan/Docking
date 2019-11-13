@@ -15,7 +15,7 @@ class Dock:
                  fitness_fun="goldscore", rescore_fun="chemscore",
                  output_dir="", ndocks=10, site_radius=12.0,
                  autoscale=10.0, early_termination=True, configuration="",
-                 split_output=True):
+                 split_output=True, overwrite_protein=True):
         """
 
         :param protein_file: The file with the template protein. If it already contains ligands, they will be removed.
@@ -37,6 +37,8 @@ class Dock:
         :param configuration: gold.conf file, which can be imported. Mainly intended when applying soft potentials and
         flexible side chains.
         :param split_output: If true, output docking poses will be saved in separate files.
+        :param overwrite_protein: If configuration file is used and this parameter is true, theused  protein in the
+        configuration file will be ignored.
         """
         # Initiating the docker and the settings
         if configuration:
@@ -87,9 +89,15 @@ class Dock:
         self.settings.early_termination = early_termination
 
         # Prepares the protein file and extracts the ligands present in it
-        self.settings.clear_protein_files()
-        self.protein_file = protein_file
-        self.ligands = self.prepare_protein()
+        if configuration and not overwrite_protein:
+            # If the configuration is present and the protein in it should be used
+            self.protein_file = self.settings.protein_files[0]
+            self.ligands = []
+        else:
+            # If there is no configuration or there is configuration but the protein in it should not be used
+            self.settings.clear_protein_files()
+            self.protein_file = protein_file
+            self.ligands = self.prepare_protein()
 
         # Creating the coordinates of the binding site
         self.template_ligand = template_ligand
@@ -155,4 +163,5 @@ if __name__ == "__main__":
                  ndocks=100,
                  autoscale=100,
                  configuration="api_gold_UI.conf",
-                 split_output=False)
+                 split_output=False,
+                 overwrite_protein=False)
