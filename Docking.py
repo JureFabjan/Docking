@@ -2,8 +2,9 @@ import os
 from pathlib import Path
 
 from ccdc.docking import Docker
-from ccdc.io import MoleculeReader, EntryWriter
+from ccdc.io import MoleculeReader, MoleculeWriter, EntryWriter
 from ccdc.protein import Protein
+from pandas import DataFrame
 
 
 class Dock:
@@ -49,10 +50,10 @@ class Dock:
             self.settings = self.docker.settings
 
         # Setting directory and file names
+        n = 0
         if not output_dir:
             current_dir = Path(".")
             existing = [str(x)[-2:] for x in current_dir.glob("Results*")]
-            n = 0
             while f"{n:02}" in existing:
                 n += 1
             output_dir = Path(current_dir, f"Results_{n:02}")
@@ -80,8 +81,8 @@ class Dock:
             else:
                 rescore_fun = "chemscore"
             print(f"Exception: Rescore function equals fitness function. Changing rescore function to {rescore_fun}.")
-        self.f_fitness = fitness_fun
-        self.f_rescore = rescore_fun
+        self.settings.fitness_function = fitness_fun
+        self.settings.rescore_function = rescore_fun
 
         # Other settings
         # Speed of the computation (lower => faster)
@@ -110,7 +111,9 @@ class Dock:
         self.settings.clear_ligand_files()
         self.settings.add_ligand_file(target_ligand, ndocks)
 
-        self.results = self.docker.dock()
+        # Changing the configuration file name; n was created when naming the output folder, so n should equal
+        # to the final number of the fulder with the results
+        self.results = self.docker.dock(file_name=f"api_gold_{n}.conf")
 
     def prepare_protein(self):
         """
@@ -153,6 +156,102 @@ class Dock:
                                                                          self.site_radius)
 
 
+class Results:
+    def __init__(self, settings_file):
+        """
+        Results operation class.
+        :param settings_file: The .conf settings file, used to perform docking.
+        """
+        self.settings = Docker.Settings.from_file(settings_file)
+        self.results = Docker.Results(self.settings)
+        self.ligands = [x for x in self.results.ligands]
+
+    def save(self, end_notation=True):
+
+        # Collecting the scoring and clusters
+        scores = self.ligand_score_extraction()
+        clusters = self.clusters_extraction()
+
+        # Saving the scores
+        scores.to_csv(Path(self.settings.output_directory, "Ligand scores.csv"), index=False)
+
+        # Reading the output file with the docked molecules and extracting the ligands themselves
+        # The ligands are already ordered by score
+        with MoleculeReader(self.settings.output_file) as docked_ligands:
+            ligands = [ligand for ligand in docked_ligands]
+
+        # Renaming of the ligands to accommodate the clusters
+        for i, cluster in enumerate(clusters):
+            for ligand in cluster:
+                ligand = int(ligand)
+                if end_notation:
+                    # Appends the cluster number to the end of the identifier
+                    ligands[ligand-1].identifier = ligands[ligand-1].identifier + f"|{i+1}"
+                else:
+                    # Original name: Template_name|Molecule|mol2|1|dockN
+                    # Constructed name: Templ_name|Molecule|mol2|cluster|dockN
+                    name = ligands[ligand-1].identifier.split("|")
+                    ligands[ligand-1].identifier = "|".join(name[:-2] + [str(i+1)] + name[-1:])
+
+        with MoleculeWriter(self.settings.output_file) as docked_ligands:
+            for ligand in ligands:
+                docked_ligands.write(ligand)
+
+    def ligand_score_extraction(self):
+        """
+        Extracts the scores of fitness and rescore functions from the results.
+        :return: Pandas DataFrame with ligand ID, fitness function result and rescore function results as columns.
+        """
+        return DataFrame({"Identifier": [ligand.identifier for ligand in self.ligands],
+                          self.settings.fitness_function: [ligand.fitness(self.settings.fitness_function) for ligand in self.ligands],
+                          self.settings.rescore_function: [ligand.fitness(self.settings.rescore_function) for ligand in self.ligands]})
+
+    def clusters_extraction(self, treshold=3.0):
+        """
+        Extracts the clusters of docking poses from the ligand log file. Note! The numbers returned are not the
+        numbers of docking poses, but rather the ranking of the score.
+        :param treshold: The distance for the clusters to be used. The first distance lower than provided treshold
+        will be taken from the results.
+        :return: A list of lists of poses in the same clusters.
+        """
+        ligand_log = self.results.ligand_log(0)
+        # Extracting the start of the table
+        ligand_log = ligand_log[ligand_log.index("Distance | Clusters"):].split("\n")
+        cluster_line = ""
+        for line in ligand_log[::-1]:
+            distance = 0
+            try:
+                distance = float(line.split("|")[0].strip())
+            except ValueError:
+                pass
+            if distance and distance < treshold:
+                cluster_line = line
+                break
+        if not cluster_line:
+            raise ValueError("No cluster found with a distance lower than treshold.")
+
+        distance, *clusters = cluster_line.split("|")
+        return [cluster.strip().split() for cluster in clusters]
+
+    def save_ligand_complexes(self):
+        """
+        Makes a complex of protein with each pose of the ligand in the results with the side chains adjustments and
+        saves them as individual .pdb files in a subfolder Complexes inside the output directory. The files are named
+        Pose_XXX.pdb, where XXX denotes the number of the pose.
+        :return:
+        """
+        # Create base output directory
+        output = Path(self.settings.output_directory, "Complexes")
+        os.mkdir(output)
+        # Loop though all the ligands
+        for ligand in self.ligands:
+            # Extract the ligand docking number from its identifier
+            n = int(ligand.identifier.split("dock")[-1].split("|")[0])
+            # Save
+            with EntryWriter(str(Path(output, f"Pose_{n:03}.pdb"))) as protein_writer:
+                protein_writer.write(self.results.make_complex(ligand))
+
+
 if __name__ == "__main__":
     _protein_file = "Protein.mol2"
     _protein_ligand_file = "Ligand.mol2"
@@ -165,3 +264,6 @@ if __name__ == "__main__":
                  configuration="api_gold_UI.conf",
                  split_output=False,
                  overwrite_protein=False)
+
+    _results = Results(_dock.settings.conf_file)
+    _results.save()
