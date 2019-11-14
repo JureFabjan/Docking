@@ -3,3 +3,7 @@
 *.mol2
 *.conf
 Results*
+!/Protein.mol2
+!/Ligand.mol2
+!/Molecule.mol2
+!/api_gold_UI.conf
