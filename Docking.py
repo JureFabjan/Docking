@@ -166,7 +166,7 @@ class Results:
         self.results = Docker.Results(self.settings)
         self.ligands = [x for x in self.results.ligands]
 
-    def save(self, end_notation=True):
+    def save(self, end_notation=True, save_complex=False):
 
         # Collecting the scoring and clusters
         scores = self.ligand_score_extraction()
@@ -196,6 +196,9 @@ class Results:
         with MoleculeWriter(self.settings.output_file) as docked_ligands:
             for ligand in ligands:
                 docked_ligands.write(ligand)
+
+        if save_complex:
+            self.save_ligand_complexes()
 
     def ligand_score_extraction(self):
         """
@@ -266,4 +269,4 @@ if __name__ == "__main__":
                  overwrite_protein=False)
 
     _results = Results(_dock.settings.conf_file)
-    _results.save()
+    _results.save(save_complex=True)
