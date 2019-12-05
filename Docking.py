@@ -93,7 +93,11 @@ class Dock:
         if configuration and not overwrite_protein:
             # If the configuration is present and the protein in it should be used
             self.protein_file = self.settings.protein_files[0]
-            self.ligands = []
+            # If protein file already exists, it is assumed it is already clean. Else the file gets created.
+            if not Path(self.protein_file).exists():
+                self.ligands = self.prepare_protein(output=self.protein_file)
+            else:
+                self.ligands = []
         else:
             # If there is no configuration or there is configuration but the protein in it should not be used
             self.settings.clear_protein_files()
@@ -115,7 +119,7 @@ class Dock:
         # to the final number of the fulder with the results
         self.results = self.docker.dock(file_name=f"api_gold_{n}.conf")
 
-    def prepare_protein(self):
+    def prepare_protein(self, output=""):
         """
         Prepares the protein structure for docking.
         :return:
@@ -129,9 +133,12 @@ class Dock:
         for p_ligand in ligands:
             protein.remove_ligand(p_ligand.identifier)
 
-        clean_protein_file = os.path.join(
-            self.settings.output_directory, f"{protein.identifier}_clean.mol2"
-        )
+        if output:
+            clean_protein_file = output
+        else:
+            clean_protein_file = os.path.join(
+                self.settings.output_directory, f"{protein.identifier}_clean.mol2"
+            )
 
         with EntryWriter(clean_protein_file) as writer:
             writer.write(protein)
@@ -167,7 +174,15 @@ class Results:
         self.ligands = [x for x in self.results.ligands]
 
     def save(self, end_notation=True, save_complex=False):
-
+        """
+        Saves the scores of the docking poses, checks the clustering results and renames the ligands in the
+        results .mol2 file to include the clusters. If specified, the ligand-protein complexes of all ligand poses
+        will be saved in individual .pdb files.
+        :param end_notation: If the ligands should be renamed so that the cluster number is included at the end. Else
+        a number before the docking number is exchanged for the cluster number.
+        :param save_complex: True if the ligand-protein complexes should also be generated.
+        :return:
+        """
         # Collecting the scoring and clusters
         scores = self.ligand_score_extraction()
         clusters = self.clusters_extraction()
@@ -180,18 +195,22 @@ class Results:
         with MoleculeReader(self.settings.output_file) as docked_ligands:
             ligands = [ligand for ligand in docked_ligands]
 
+        # Making sure the scores are ordered by the second column (fitness function score)
+        scores = scores.sort_values(by=self.settings.fitness_function, axis=0, ascending=False)
         # Renaming of the ligands to accommodate the clusters
         for i, cluster in enumerate(clusters):
             for ligand in cluster:
                 ligand = int(ligand)
                 if end_notation:
                     # Appends the cluster number to the end of the identifier
-                    ligands[ligand-1].identifier = ligands[ligand-1].identifier + f"|{i+1}"
+                    name = ligands[ligand-1].identifier + f"|{i+1}"
                 else:
                     # Original name: Template_name|Molecule|mol2|1|dockN
                     # Constructed name: Templ_name|Molecule|mol2|cluster|dockN
                     name = ligands[ligand-1].identifier.split("|")
-                    ligands[ligand-1].identifier = "|".join(name[:-2] + [str(i+1)] + name[-1:])
+                    name = "|".join(name[:-2] + [str(i+1)] + name[-1:])
+                ligands[ligand-1].identifier = name
+
 
         with MoleculeWriter(self.settings.output_file) as docked_ligands:
             for ligand in ligands:
