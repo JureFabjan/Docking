@@ -118,7 +118,7 @@ class Dock:
         self.settings.add_ligand_file(target_ligand, ndocks)
 
         # Changing the configuration file name; n was created when naming the output folder, so n should equal
-        # to the final number of the fulder with the results
+        # to the final number of the folder with the results
         self.results = self.docker.dock(file_name=f"api_gold_{n}.conf")
 
     def prepare_protein(self, output=""):
@@ -199,7 +199,7 @@ class Results:
             ligands = [ligand for ligand in docked_ligands]
 
         # Making sure the scores are ordered by the second column (fitness function score)
-        scores = scores.sort_values(by=self.settings.fitness_function, axis=0, ascending=False)
+        scores.sort_values(by=self.settings.fitness_function, axis=0, ascending=False, inplace=True)
         # Renaming of the ligands to accommodate the clusters
         for i, cluster in enumerate(clusters):
             for ligand in cluster:
@@ -283,7 +283,7 @@ class Results:
             saver = PDBIO()
             for n in range(len(self.ligands)):
                 structure_path = str(Path(output, f"Pose{n:03}.pdb"))
-                structure = parser.get_structure(structure_path)
+                structure = parser.get_structure(f"Pose{n:03}", structure_path)
                 saver.set_structure(structure)
                 saver.save(structure_path)
 
