@@ -5,6 +5,8 @@ from ccdc.docking import Docker
 from ccdc.io import MoleculeReader, MoleculeWriter, EntryWriter
 from ccdc.protein import Protein
 from pandas import DataFrame
+from Bio.PDB import PDBParser
+from Bio.PDB import PDBIO
 
 
 class Dock:
@@ -92,7 +94,7 @@ class Dock:
         # Prepares the protein file and extracts the ligands present in it
         if configuration and not overwrite_protein:
             # If the configuration is present and the protein in it should be used
-            self.protein_file = self.settings.protein_files[0]
+            self.protein_file = self.settings.protein_files[0].file_name
             # If protein file already exists, it is assumed it is already clean. Else the file gets created.
             if not Path(self.protein_file).exists():
                 self.ligands = self.prepare_protein(output=self.protein_file)
@@ -173,7 +175,7 @@ class Results:
         self.results = Docker.Results(self.settings)
         self.ligands = [x for x in self.results.ligands]
 
-    def save(self, end_notation=True, save_complex=False):
+    def save(self, end_notation=True, save_complex=False, clean_complex=False):
         """
         Saves the scores of the docking poses, checks the clustering results and renames the ligands in the
         results .mol2 file to include the clusters. If specified, the ligand-protein complexes of all ligand poses
@@ -181,6 +183,7 @@ class Results:
         :param end_notation: If the ligands should be renamed so that the cluster number is included at the end. Else
         a number before the docking number is exchanged for the cluster number.
         :param save_complex: True if the ligand-protein complexes should also be generated.
+        :param clean_complex: Clean the complexes from doubles of chains.
         :return:
         """
         # Collecting the scoring and clusters
@@ -211,13 +214,12 @@ class Results:
                     name = "|".join(name[:-2] + [str(i+1)] + name[-1:])
                 ligands[ligand-1].identifier = name
 
-
         with MoleculeWriter(self.settings.output_file) as docked_ligands:
             for ligand in ligands:
                 docked_ligands.write(ligand)
 
         if save_complex:
-            self.save_ligand_complexes()
+            self.save_ligand_complexes(clean_complex)
 
     def ligand_score_extraction(self):
         """
@@ -250,16 +252,17 @@ class Results:
                 cluster_line = line
                 break
         if not cluster_line:
-            raise ValueError("No cluster found with a distance lower than treshold.")
+            raise ValueError("No cluster found with a distance lower than threshold.")
 
         distance, *clusters = cluster_line.split("|")
         return [cluster.strip().split() for cluster in clusters]
 
-    def save_ligand_complexes(self):
+    def save_ligand_complexes(self, clean_complex):
         """
         Makes a complex of protein with each pose of the ligand in the results with the side chains adjustments and
         saves them as individual .pdb files in a subfolder Complexes inside the output directory. The files are named
         Pose_XXX.pdb, where XXX denotes the number of the pose.
+        :param clean_complex: Boolean specifying if the complexes should be cleaned from chain doubles.
         :return:
         """
         # Create base output directory
@@ -273,19 +276,32 @@ class Results:
             with EntryWriter(str(Path(output, f"Pose_{n:03}.pdb"))) as protein_writer:
                 protein_writer.write(self.results.make_complex(ligand))
 
+        if clean_complex:
+            # The PDBParser cannot parse residues with the same numbering, so it just retains the correct ones.
+            # This means that to clean the complexes we just read the files and save them.
+            parser = PDBParser(PERMISSIVE=1)
+            saver = PDBIO()
+            for n in range(len(self.ligands)):
+                structure_path = str(Path(output, f"Pose{n:03}.pdb"))
+                structure = parser.get_structure(structure_path)
+                saver.set_structure(structure)
+                saver.save(structure_path)
+
 
 if __name__ == "__main__":
-    _protein_file = "Protein.mol2"
-    _protein_ligand_file = "Ligand.mol2"
-    _ligand_file = "Molecule.mol2"
+    os.chdir(Path(".", "Diazepam_redocking"))
+    _protein_file = "6hup.mol2"
+    _protein_ligand_file = "6hup_ligand.mol2"
+    _ligand_file = "Diazepam.mol2"
     _dock = Dock(_protein_file,
                  _ligand_file,
                  template_ligand=_protein_ligand_file,
-                 ndocks=100,
+                 ndocks=1000,
                  autoscale=100,
-                 configuration="api_gold_UI.conf",
+                 configuration="gold_UI.conf",
+                 early_termination=False,
                  split_output=False,
                  overwrite_protein=False)
 
     _results = Results(_dock.settings.conf_file)
-    _results.save(save_complex=True)
+    _results.save(save_complex=False)
