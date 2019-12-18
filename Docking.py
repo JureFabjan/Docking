@@ -230,11 +230,11 @@ class Results:
                           self.settings.fitness_function: [ligand.fitness(self.settings.fitness_function) for ligand in self.ligands],
                           self.settings.rescore_function: [ligand.fitness(self.settings.rescore_function) for ligand in self.ligands]})
 
-    def clusters_extraction(self, treshold=3.0):
+    def clusters_extraction(self, threshold=3.0):
         """
         Extracts the clusters of docking poses from the ligand log file. Note! The numbers returned are not the
         numbers of docking poses, but rather the ranking of the score.
-        :param treshold: The distance for the clusters to be used. The first distance lower than provided treshold
+        :param threshold: The distance for the clusters to be used. The first distance lower than provided threshold
         will be taken from the results.
         :return: A list of lists of poses in the same clusters.
         """
@@ -248,7 +248,7 @@ class Results:
                 distance = float(line.split("|")[0].strip())
             except ValueError:
                 pass
-            if distance and distance < treshold:
+            if distance and distance < threshold:
                 cluster_line = line
                 break
         if not cluster_line:
@@ -281,27 +281,27 @@ class Results:
             # This means that to clean the complexes we just read the files and save them.
             parser = PDBParser(PERMISSIVE=1)
             saver = PDBIO()
-            for n in range(len(self.ligands)):
-                structure_path = str(Path(output, f"Pose{n:03}.pdb"))
-                structure = parser.get_structure(f"Pose{n:03}", structure_path)
+            for n in range(1, len(self.ligands)+1):
+                structure_path = str(Path(output, f"Pose_{n:03}.pdb"))
+                structure = parser.get_structure(f"Pose_{n:03}", structure_path)
                 saver.set_structure(structure)
                 saver.save(structure_path)
 
 
 if __name__ == "__main__":
-    os.chdir(Path(".", "Diazepam_redocking"))
-    _protein_file = "6hup.mol2"
-    _protein_ligand_file = "6hup_ligand.mol2"
-    _ligand_file = "Diazepam.mol2"
+    os.chdir(Path(".", "Diazepam_test"))
+    _protein_file = "Protein.mol2"
+    _protein_ligand_file = "Ligand.mol2"
+    _ligand_file = "Molecule.mol2"
     _dock = Dock(_protein_file,
                  _ligand_file,
                  template_ligand=_protein_ligand_file,
-                 ndocks=1000,
-                 autoscale=100,
-                 configuration="gold_UI.conf",
+                 ndocks=10,
+                 autoscale=10,
+                 configuration="api_gold_UI.conf",
                  early_termination=False,
                  split_output=False,
                  overwrite_protein=False)
 
     _results = Results(_dock.settings.conf_file)
-    _results.save(save_complex=False)
+    _results.save(save_complex=True, clean_complex=True)
