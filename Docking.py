@@ -12,6 +12,7 @@ from subprocess import run
 # Just getting the script location
 _location = str(Path(".").absolute())
 
+
 class Dock:
     """
     The class wrapper for the data, used in the docking experiment.
@@ -297,35 +298,59 @@ class Results:
         this function creates a database with all the generated complex files.
         :return:
         """
-        output = Path(self.settings.output_directory, "Complexes")
-        script = Path(_location, "Database_import.svl")
+        script = Path(_location, "db_Import.svl")
 
         # Preparing the script by including the output path
-        with open(script, "r") as script_file_handle:
-            script_file = script_file_handle.read().split("\n")
-        script_file[10] = script_file[10].split("\'")
-        script_file[10] = "\'".join([script_file[10][0], str(output.absolute()).replace(os.sep, "/"), script_file[10][2]])
-        with open(script, "w") as script_file_handle:
-            script_file_handle.write("\n".join(script_file))
+        self.adjust_script(script, 10)
 
         run(["moebatch", "-run", str(script.absolute())], shell=True)
 
+    def moe_distance_extract(self):
+        """
+        Runs a script, which extracts the specific protein-ligand distances from a MOE database.
+        Currently the distances are specified in the script, but this will be more flexible in the future.
+        :return:
+        """
+        script = Path(_location, "db_Distance.svl")
+
+        # Preparing the script by including the output path
+        self.adjust_script(script, 11)
+
+        run(["moebatch", "-run", str(script.absolute())], shell=True)
+
+    def adjust_script(self, script_file, line):
+        """
+        Abstraction of the script adjustment - it adjusts the path in the specified script, on a specified line.
+        :param script_file: Path object, pointing to the script.
+        :param line: Integer, pointing to the line, which needs to be changed (numbering starts from 0).
+        :return:
+        """
+        output = Path(self.settings.output_directory, "Complexes")
+        with open(script_file, "r") as script_file_handle:
+            script_file_text = script_file_handle.read().split("\n")
+        line_parts = script_file_text[line].split("\'")
+        script_file_text[line] = "\'".join([line_parts[0], str(output.absolute()).replace(os.sep, "/"),
+                                            line_parts[2]])
+        with open(script_file, "w") as script_file_handle:
+            script_file_handle.write("\n".join(script_file_text))
+
 
 if __name__ == "__main__":
-    os.chdir(Path(".", "Diazepam_test"))
-    _protein_file = "Protein.mol2"
-    _protein_ligand_file = "Ligand.mol2"
-    _ligand_file = "Molecule.mol2"
+    os.chdir(Path(".", "a1g2"))
+    _protein_file = "Source_protein.mol2"
+    _protein_ligand_file = "Source_molecule.mol2"
+    _ligand_file = "DCBSPU19.mol2"
     _dock = Dock(_protein_file,
                  _ligand_file,
                  template_ligand=_protein_ligand_file,
                  ndocks=10,
                  autoscale=10,
-                 configuration="api_gold_UI.conf",
+                 # configuration="gold.conf",
                  early_termination=False,
-                 split_output=False,
-                 overwrite_protein=False)
+                 split_output=False)
+                 # overwrite_protein=True)
 
     _results = Results(_dock.settings.conf_file)
     _results.save(save_complex=True, clean_complex=True)
     _results.moe_complex_import()
+    _results.moe_distance_extract()
