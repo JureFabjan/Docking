@@ -1,0 +1,29 @@
+#svl
+
+
+const DEFAULTS = [nogaps:1]; // 1 => ignore gaps
+
+//============================================================================
+// main function
+//============================================================================
+function main[]
+
+	cd 'C:/Users/Jure/Documents/Jure files/GitHub/Docking/a1g2/Results_02/Complexes';
+
+	local db_key = db_Open ['Database.mdb', 'create'];
+	db_CreateField [db_key, 'mol', 'molecule'];
+	db_CreateField [db_key, 'name', 'char'];
+	
+	local files = flist ['', '*.pdb'];
+	local filename;
+	for filename in files loop
+		local chains = ReadPDB [filename, []];
+		db_Write [db_key, 0,
+			[mol: db_ExtractMolecule chains,
+			name: swrite cName first chains]];
+		oDestroy chains;
+	endloop
+
+endfunction
+
+#eof
