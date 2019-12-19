@@ -4,7 +4,7 @@ from pathlib import Path
 from ccdc.docking import Docker
 from ccdc.io import MoleculeReader, MoleculeWriter, EntryWriter
 from ccdc.protein import Protein
-from pandas import DataFrame
+from pandas import DataFrame, read_csv, merge
 from Bio.PDB import PDBParser
 from Bio.PDB import PDBIO
 from subprocess import run
@@ -179,11 +179,13 @@ class Results:
         self.results = Docker.Results(self.settings)
         self.ligands = [x for x in self.results.ligands]
 
-    def save(self, end_notation=True, save_complex=False, clean_complex=False):
+    def save(self, end_notation=True, save_complex=False, clean_complex=False, extract_distances=False):
         """
         Saves the scores of the docking poses, checks the clustering results and renames the ligands in the
         results .mol2 file to include the clusters. If specified, the ligand-protein complexes of all ligand poses
         will be saved in individual .pdb files.
+        :param extract_distances: Boolean specifying if the protein-ligand distances should be extracted. Note this
+        will be performed only in case save_complex is True too.
         :param end_notation: If the ligands should be renamed so that the cluster number is included at the end. Else
         a number before the docking number is exchanged for the cluster number.
         :param save_complex: True if the ligand-protein complexes should also be generated.
@@ -193,9 +195,6 @@ class Results:
         # Collecting the scoring and clusters
         scores = self.ligand_score_extraction()
         clusters = self.clusters_extraction()
-
-        # Saving the scores
-        scores.to_csv(Path(self.settings.output_directory, "Ligand scores.csv"), index=False)
 
         # Reading the output file with the docked molecules and extracting the ligands themselves
         # The ligands are already ordered by score
@@ -224,6 +223,24 @@ class Results:
 
         if save_complex:
             self.save_ligand_complexes(clean_complex)
+
+            # Adding complexes file names to the scoring dataframe
+            scores["Complex"] = scores["Identifier"].str.split("dock").str[-1].apply(lambda x: f"Pose_{int(x):03}")
+
+            if extract_distances:
+                # Making the MOE database from the extracted complexes
+                self.moe_complex_import()
+                # Extracting the distances between the ligands and protein from the database
+                self.moe_distance_extract()
+
+                # Opening the distances file
+                distances = read_csv(Path(self.settings.output_directory, "Complexes", "Results.txt"), sep="\t")
+                distances.rename({"File": "Complex"}, axis=1, inplace=True)
+                scores = merge(scores, distances, on="Complex")
+
+        # Saving the scores. This is done last because of potential additions to the scores files (i.e. file names,
+        # distances etc.)
+        scores.to_csv(Path(self.settings.output_directory, "Ligand scores.csv"), index=False)
 
     def ligand_score_extraction(self):
         """
@@ -351,6 +368,6 @@ if __name__ == "__main__":
                  # overwrite_protein=True)
 
     _results = Results(_dock.settings.conf_file)
-    _results.save(save_complex=True, clean_complex=True)
-    _results.moe_complex_import()
-    _results.moe_distance_extract()
+    _results.save(save_complex=True,
+                  clean_complex=True,
+                  extract_distances=True)
