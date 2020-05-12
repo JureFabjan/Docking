@@ -9,7 +9,7 @@ const DEFAULTS = [nogaps:1]; // 1 => ignore gaps
 function main[]
 
 // Working directory
-local working_dir = 'C:/Users/Jure/Documents/Jure files/GitHub/Docking/a1g2/Results_02/Complexes';
+local working_dir = 'Z:/Ongoing work/Projects/a6 non-review review/Docking/Runs/a1b1/DCBS76/Complexes';
 
 cd working_dir;
 
@@ -19,13 +19,13 @@ local files = flist[[], '*.mdb'];
 // [Ligand_atom, [Chain, Residue, Residue_number, Residue_atom]]
 // USE NUMBERING THAT HAS THE FIRST RESIDUE COUNTED AS 1!!
 local atoms_possible = [[
-	[ 'C1', [1, 'GLY', 148, 'CA']],
-	[ 'C3', [1, 'ALA', 151, 'CA']],
-	[ 'N9', [2, 'THR', 118, 'CA']],
-	[ 'C15', [1, 'THR', 197, 'CA']],
-	[ 'C13', [2, 'TYR', 117, 'CA']],
-	['C17', [2, 'MET', 33, 'CA']],
-	['C7', [2, 'PHE',  53, 'CA']]
+	[ 'C1', [1, 'GLY', 146, 'CA']],
+	[ 'C3', [1, 'ALA', 149, 'CA']],
+	[ 'N9', [2, 'GLY', 120, 'CA']],
+	[ 'C15', [1, 'THR', 195, 'CA']],
+	[ 'C13', [2, 'TYR', 119, 'CA']],
+	['C17', [2, 'ILE', 35, 'CA']],
+	['C7', [2, 'TYR',  53, 'CA']]
 	]
 ];
 

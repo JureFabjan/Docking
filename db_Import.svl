@@ -8,7 +8,7 @@ const DEFAULTS = [nogaps:1]; // 1 => ignore gaps
 //============================================================================
 function main[]
 
-	cd 'C:/Users/Jure/Documents/Jure files/GitHub/Docking/a1g2/Results_02/Complexes';
+	cd 'Z:/Ongoing work/Projects/a6 non-review review/Docking/Runs/a1b3/6HUP/DCBS88/Complexes';
 
 	local db_key = db_Open ['Database.mdb', 'create'];
 	db_CreateField [db_key, 'mol', 'molecule'];

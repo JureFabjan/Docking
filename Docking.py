@@ -1,16 +1,17 @@
+import inspect
 import os
 from pathlib import Path
+from subprocess import run
 
+from Bio.PDB import PDBIO
+from Bio.PDB import PDBParser
 from ccdc.docking import Docker
 from ccdc.io import MoleculeReader, MoleculeWriter, EntryWriter
 from ccdc.protein import Protein
 from pandas import DataFrame, read_csv, merge
-from Bio.PDB import PDBParser
-from Bio.PDB import PDBIO
-from subprocess import run
 
 # Just getting the script location
-_location = str(Path(".").absolute())
+_location = str(Path(inspect.getfile(inspect.currentframe())).parents[0].absolute())
 
 
 class Dock:
@@ -22,7 +23,7 @@ class Dock:
                  fitness_fun="goldscore", rescore_fun="chemscore",
                  output_dir="", ndocks=10, site_radius=12.0,
                  autoscale=10.0, early_termination=True, configuration="",
-                 split_output=True, overwrite_protein=True):
+                 split_output=True, overwrite_protein=True, output_format="mol2"):
         """
 
         :param protein_file: The file with the template protein. If it already contains ligands, they will be removed.
@@ -46,14 +47,14 @@ class Dock:
         :param split_output: If true, output docking poses will be saved in separate files.
         :param overwrite_protein: If configuration file is used and this parameter is true, theused  protein in the
         configuration file will be ignored.
+        :param output_format: The desired format of the output files. Mol2 advised.
         """
         # Initiating the docker and the settings
         if configuration:
-            self.settings = Docker.Settings.from_file(configuration)
-            self.docker = Docker(settings=self.settings)
+            self.docker = Docker(settings=Docker.Settings.from_file(configuration))
         else:
             self.docker = Docker()
-            self.settings = self.docker.settings
+        self.settings = self.docker.settings
 
         # Setting directory and file names
         n = 0
@@ -70,11 +71,8 @@ class Dock:
                 os.mkdir(output_dir)
             self.settings.output_directory = output_dir
 
-        # Adding the settings file to the output directory
-        self.settings.output_format = str(Path(output_dir, "gold.conf").absolute)
-
         # Setting the file names
-        self.settings.output_format = "mol2"
+        self.settings.output_format = output_format
         if split_output:
             self.settings.output_file = ""
         else:
@@ -96,6 +94,7 @@ class Dock:
         self.settings.early_termination = early_termination
 
         # Prepares the protein file and extracts the ligands present in it
+        self.protein_file = protein_file
         if configuration and not overwrite_protein:
             # If the configuration is present and the protein in it should be used
             self.protein_file = self.settings.protein_files[0].file_name
@@ -106,9 +105,14 @@ class Dock:
                 self.ligands = []
         else:
             # If there is no configuration or there is configuration but the protein in it should not be used
-            self.settings.clear_protein_files()
-            self.protein_file = protein_file
-            self.ligands = self.prepare_protein()
+            if configuration:
+                # If the protein should not be overwritten, then the correspondence of the path is checked and adjusted.
+                if Path(self.protein_file).absolute() != Path(protein_file).absolute():
+                    self.protein_file = str(Path(protein_file).absolute())
+            else:
+                self.settings.clear_protein_files()
+                self.protein_file = protein_file
+                self.ligands = self.prepare_protein()
 
         # Creating the coordinates of the binding site
         self.template_ligand = template_ligand
@@ -123,7 +127,8 @@ class Dock:
 
         # Changing the configuration file name; n was created when naming the output folder, so n should equal
         # to the final number of the folder with the results
-        self.results = self.docker.dock(file_name=f"api_gold_{n}.conf")
+        self.results = self.docker.dock(file_name="gold_{}_{}.conf".format(target_ligand.split("\\")[-1].split("/")[-1].split(".")[0],
+                                                                           n))
 
     def prepare_protein(self, output=""):
         """
@@ -179,7 +184,8 @@ class Results:
         self.results = Docker.Results(self.settings)
         self.ligands = [x for x in self.results.ligands]
 
-    def save(self, end_notation=True, save_complex=False, clean_complex=False, extract_distances=False):
+    def save(self, end_notation=True, save_complex=False, clean_complex=False, extract_distances=False,
+             extract_positions=False):
         """
         Saves the scores of the docking poses, checks the clustering results and renames the ligands in the
         results .mol2 file to include the clusters. If specified, the ligand-protein complexes of all ligand poses
@@ -190,16 +196,29 @@ class Results:
         a number before the docking number is exchanged for the cluster number.
         :param save_complex: True if the ligand-protein complexes should also be generated.
         :param clean_complex: Clean the complexes from doubles of chains.
+        :param extract_positions: Extract the positions of ligands in the relative coordinate system.
         :return:
         """
         # Collecting the scoring and clusters
         scores = self.ligand_score_extraction()
+        # Saving the scores just in case the later-on processing is interrupted
+        # ....Do follow this up by making an automated workaround when the script was interrupted, but the
+        # ....scores are already saved, so the analysis can be resumed at any point!!
+        scores.to_csv(Path(self.settings.output_directory, "Ligand scores.csv"), index=False)
+
         clusters = self.clusters_extraction()
 
         # Reading the output file with the docked molecules and extracting the ligands themselves
         # The ligands are already ordered by score
-        with MoleculeReader(self.settings.output_file) as docked_ligands:
-            ligands = [ligand for ligand in docked_ligands]
+        if self.settings.output_file:
+            # In case the output file was not split
+            with MoleculeReader(self.settings.output_file) as docked_ligands:
+                ligands = [ligand for ligand in docked_ligands]
+        else:
+            # In case there is no single output file in the docking
+            ligand_list = [fname for fname in os.listdir(self.settings.output_directory) if fname.startswith("gold_soln_")]
+            ligands = [MoleculeReader(str(Path(self.settings.output_directory,
+                                               ligand).absolute()))[0] for ligand in ligand_list]
 
         # Making sure the scores are ordered by the second column (fitness function score)
         scores.sort_values(by=self.settings.fitness_function, axis=0, ascending=False, inplace=True)
@@ -217,19 +236,31 @@ class Results:
                     name = "|".join(name[:-2] + [str(i+1)] + name[-1:])
                 ligands[ligand-1].identifier = name
 
-        with MoleculeWriter(self.settings.output_file) as docked_ligands:
-            for ligand in ligands:
-                docked_ligands.write(ligand)
+        if self.settings.output_file:
+            # Saving ligands into a single file, if the output_file is defined
+            with MoleculeWriter(self.settings.output_file) as docked_ligands:
+                for ligand in ligands:
+                    docked_ligands.write(ligand)
+        else:
+            # Ligands were initially saved into separate files, so we save them into appropriate files again.
+            # A merged file is also created and filled with the ligands
+            with MoleculeWriter(str(Path(self.settings.output_directory, "Merged.mol2").absolute())) as docked_ligands:
+                for fname, ligand in zip(ligand_list, ligands):
+                    docked_ligands.write(ligand)
+                    with MoleculeWriter(str(Path(self.settings.output_directory, fname).absolute())) as current_ligand:
+                        current_ligand.write(ligand)
 
         if save_complex:
             self.save_ligand_complexes(clean_complex)
 
-            # Adding complexes file names to the scoring dataframe
+            # Adding complexes file names to the scoring data frame
             scores["Complex"] = scores["Identifier"].str.split("dock").str[-1].apply(lambda x: f"Pose_{int(x):03}")
 
-            if extract_distances:
+            if extract_distances or extract_positions:
                 # Making the MOE database from the extracted complexes
                 self.moe_complex_import()
+
+            if extract_distances:
                 # Extracting the distances between the ligands and protein from the database
                 self.moe_distance_extract()
 
@@ -237,6 +268,15 @@ class Results:
                 distances = read_csv(Path(self.settings.output_directory, "Complexes", "Results.txt"), sep="\t")
                 distances.rename({"File": "Complex"}, axis=1, inplace=True)
                 scores = merge(scores, distances, on="Complex")
+
+            if extract_positions:
+                # Extracting the ligand positions
+                self.moe_position_extract()
+
+                # Opening the positions file
+                positions = read_csv(Path(self.settings.output_directory, "Complexes", "Results.txt"), sep="\t")
+                positions.rename({"File": "Complex"}, axis=1, inplace=True)
+                scores = merge(scores, positions, on="Complex")
 
         # Saving the scores. This is done last because of potential additions to the scores files (i.e. file names,
         # distances etc.)
@@ -335,6 +375,20 @@ class Results:
 
         run(["moebatch", "-run", str(script.absolute())], shell=True)
 
+    def moe_position_extract(self):
+        """
+        Runs a script, which extrcts the protein-ligand distances and angles in the defined coordinate
+        system. Works on an MOE database.
+        Currently the distances are specified in the script, but this will be made to be more flexible in the future.
+        :return:
+        """
+        script = Path(_location, "db_Position.svl")
+
+        # Preparing the script by including the output path
+        self.adjust_script(script, 11)
+
+        run(["moebatch", "-run", str(script.absolute())], shell=True)
+
     def adjust_script(self, script_file, line):
         """
         Abstraction of the script adjustment - it adjusts the path in the specified script, on a specified line.
@@ -370,4 +424,5 @@ if __name__ == "__main__":
     _results = Results(_dock.settings.conf_file)
     _results.save(save_complex=True,
                   clean_complex=True,
-                  extract_distances=True)
+                  extract_distances=True,
+                  extract_positions=True)
