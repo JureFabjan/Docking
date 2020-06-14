@@ -335,8 +335,10 @@ class Results:
             n = int(ligand.identifier.split("dock")[-1].split("|")[0])
             # Save
             with EntryWriter(str(Path(output, f"Pose_{n:03}.pdb"))) as protein_writer:
-                protein_writer.write(self.results.make_complex(ligand))
-
+                complex = self.results.make_complex(ligand)
+                complex.remove_unknown_atoms()
+                protein_writer.write(complex)
+        
         if clean_complex:
             # The PDBParser cannot parse residues with the same numbering, so it just retains the correct ones.
             # This means that to clean the complexes we just read the files and save them.
