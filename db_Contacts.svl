@@ -1,0 +1,50 @@
+#svl
+
+
+const DEFAULTS = [nogaps:1]; // 1 => ignore gaps
+
+function pro_Contacts, MM;
+//============================================================================
+// main function
+//============================================================================
+function main[]
+
+// Working directory
+local working_dir = 'Z:/Ongoing work/Projects/a6 non-review review/Docking/Runs/a1b3/DCBS76/Complexes';
+
+cd working_dir;
+
+local files = flist[[], '*.mdb'];
+
+
+// Setting up
+local file, chains, entry, contacts;
+local db_key, entries, read, entry_key;
+
+for file in files loop
+	// Open each file and open each entry in the DB
+	db_key = db_Open[file, 'read'];
+	entries = dbv_Entries[db_key];
+	for entry_key in entries loop
+		read = db_Read[db_key, entry_key];
+		chains = mol_Create read(1)(2);
+		
+		// Minimize the energy of the poses
+		MM [pot_finalize:1, keep_chirality:'geometry'];
+		print 'Minimized the energy';
+	
+		// Extract the contacts
+		contacts = pro_Contacts [setA: 'Ligand', setB: 'Receptor', file: token swrite['{|.}', [read(1)(2)(1)(1), 'txt']]];
+		
+	
+		Close[force:1];
+	
+	endloop;
+	
+	dbv_Close[db_key];
+	
+endloop;
+
+endfunction
+
+#eof

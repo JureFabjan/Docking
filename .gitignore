@@ -2,6 +2,9 @@
 *.pdb
 *.mol2
 *.conf
+*.log
+.vscode
+.idea
 Results*
 !/Protein.mol2
 !/Ligand.mol2

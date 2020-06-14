@@ -1,0 +1,145 @@
+#svl
+
+
+const DEFAULTS = [nogaps:1]; // 1 => ignore gaps
+
+//============================================================================
+// main function
+//============================================================================
+function main[]
+
+// Working directory
+local working_dir = 'Z:/Ongoing work/Projects/a6 non-review review/Docking/Runs/a1b3/6HUP/DCBS96/Complexes';
+
+cd working_dir;
+
+local files = flist[[], '*.mdb'];
+
+// Defining the coordinate system
+// [Chain, Residue, Residue_number, Residue_atom]
+// USE NUMBERING THAT HAS THE FIRST RESIDUE COUNTED AS 1!!
+local aCenter = [2, 'GLY', 196, 'CA'];
+local aX_axis = [2, 'SER', 193, 'CA'];
+local aY_axis = [2, 'TYR', 198, 'CA'];
+local aZ_axis = [3, 'MET', 108, 'CA'];
+
+// 3 atoms, which will define the ligand position and rotation
+local aLigand_position = ['C13', 'N23', 'C2'];
+// 4 atoms for every bond, for which the dihedral angle should be checked
+local aLigand_dihedral = [
+	['N9', 'N8', 'C16', 'C15']
+];
+
+// Setting up
+local file, results, results_temp, chains, aLigand, i, j;
+local aLigand_selected, residue, residue_atom;
+local chain_num, res_name, res_num, res_atom;
+local rProtein, db_key, entries, read, entry_key;
+local entry, aLigand_current, temp_header, appendage;
+local atom, cNumber_axis, rName_axis, rNumber_axis;
+local aName_axis, aCentral, dihedral_set;
+local aAxis, rAxis, rCentral;
+
+// Constructing the header
+j = 1;
+for atom in aLigand_position loop
+	for appendage in ['alpha', 'beta', 'gamma', 'distance'] loop
+		temp_header(j) = swrite['{|_}', [atom, appendage]];
+		j = j+1;
+	
+	endloop;
+
+endloop;
+
+for dihedral_set in aLigand_dihedral loop
+	temp_header(j) = swrite['{|_}', [dihedral_set(1), 'dihedral']];
+	j = j+1;
+
+endloop;
+
+print temp_header;
+results(1) = swrite['File\t{|\t}', temp_header];
+print results;
+
+i = 2;
+for file in files loop
+	// Open each file and open each entry in the DB
+	db_key = db_Open[file, 'read'];
+	entries = dbv_Entries[db_key];
+	for entry_key in entries loop
+		read = db_Read[db_key, entry_key];
+		chains = mol_Create read(1)(2);
+	
+		// Extract the name of the entry
+		results_temp = [read(1)(2)(1)(1)];
+		// Getting the atoms from a chain with lowest number of residues.
+		// Supposes that the ligand is a separate chain, which is the only one to contain a single residue.
+		aLigand = cat cAtoms chains(x_min app length app first app cResidues chains);		
+	
+		// print 'Checking the following structure:';
+		// print read(1)(2)(1)(1);
+		
+		// Getting the chain residues
+		rProtein = cResidues chains;
+		
+		// Getting the atom in the center of the coordinate system
+		rCentral = rAtoms rProtein(aCenter(1)) | (rName rProtein(aCenter(1)) == aCenter(2)) and (rNumber rProtein(aCenter(1)) == aCenter(3));
+		aCentral = rCentral(1) | aName rCentral(1) == aCenter(4);
+		// print 'Central atom';
+		// print aCentral;
+			
+		// Checking of the specified atoms
+		j = 2;
+		for aLigand_current in aLigand_position loop
+			aLigand_selected = aLigand | aName aLigand==aLigand_current;
+			// print 'Ligand';
+			// print aLigand_selected;
+			
+			// Looping through the axes and measuring angles
+			for [cNumber_axis, rName_axis, rNumber_axis, aName_axis] in [aX_axis, aY_axis, aZ_axis] loop
+				rAxis = rAtoms rProtein(cNumber_axis) | (rName rProtein(cNumber_axis) == rName_axis) and (rNumber rProtein(cNumber_axis) == rNumber_axis);
+				aAxis = rAxis(1) | aName rAxis(1) == aName_axis;
+				// print 'Axis';
+				// print aAxis;
+				results_temp(j) = aAngleDeg[aAxis, aCentral, aLigand_selected];
+				j = j+1;
+			
+			endloop;
+
+			// Adding the distance to the center
+			results_temp(j) = aDist[aLigand_selected, aCentral];
+			j = j+1;
+
+		endloop;
+		
+		// Adding the dihedral angles calculation
+		for dihedral_set in aLigand_dihedral loop
+			results_temp(j) = aDihedralCWDeg [
+				aLigand | aName aLigand == dihedral_set(1),
+				aLigand | aName aLigand == dihedral_set(2),
+				aLigand | aName aLigand == dihedral_set(3),
+				aLigand | aName aLigand == dihedral_set(4)
+			]; 
+			j = j+1;
+			
+		endloop;
+	
+		results(i) = swrite['{|\t}', results_temp];
+		i = i+1;
+	
+		Close[force:1];
+	
+	endloop;
+	
+	dbv_Close[db_key];
+	
+endloop;
+
+print 'Results:';
+print results;
+
+fwrite['Results.txt', '{|\n}', results];
+
+endfunction
+
+#eof

@@ -1,0 +1,60 @@
+#svl
+//
+//The #svl line is not required, but it helps to annotate that that file
+//is an SVL file. 
+//
+//When you have a file with SVL commands, you can "load" the file, and then
+//type a command like
+//
+//db_pro_contacts[]
+//
+//However, if you select an SVL file in the (MOE | File | Open) panel and
+//double click, it will "run" the file.  This looks for a function in that
+//file called "main", or for a line like
+//
+//#set main db_pro_contacts
+//
+//This says that the db_pro_contacts function should be used.  If there isn't
+//a line like this, and there isn't a function called main, you get an error
+//"Module Entry Point Not Found".
+//
+//Some SVL common functions are available in every script (for example cat,
+//add, db_Open).  Others, like pro_Contacts are available to use in other SVL 
+//code, but you need to declare that you want to use that function with a line 
+//like:
+//
+//function pro_Contacts;
+//
+//There is a function sym_autoimport which returns 1 if a function can be
+//used without first declaring it, and 0 if you need to declare it. For example:
+//
+//svl> sym_autoimport ['cat', 'pro_Contacts']
+//[1,0]
+//
+
+#set main db_pro_contacts 
+function pro_Contacts;
+
+function db_pro_contacts []
+    local files = flist[[], '*.mdb'];
+     
+    // Setting up
+    local file, chains, entry, contacts;
+    local db_key, entries, read, entry_key;
+     
+    for file in files loop
+		// Open each file and open each entry in the DB
+		db_key = db_Open[file, 'read'];
+		entries = dbv_Entries[db_key];
+		for entry_key in entries loop
+			read = db_Read[db_key, entry_key];
+			chains = mol_Create read(1)(2);
+		   
+			// Extract the contacts
+			contacts = pro_Contacts [setA: 'Ligand', setB: 'Receptor', file: token swrite['{|.}', [read(1)(2)(1)(1), 'txt']]];
+			Close[force:1];
+	endloop;
+       
+	dbv_Close[db_key];
+    endloop;
+endfunction
