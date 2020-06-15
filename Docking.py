@@ -184,7 +184,7 @@ class Results:
         self.results = Docker.Results(self.settings)
         self.ligands = [x for x in self.results.ligands]
 
-    def save(self, end_notation=True, save_complex=False, clean_complex=False, extract_distances=False,
+    def save(self, end_notation=True, cluster_threshold=3.0, save_complex=False, clean_complex=False, extract_distances=False,
              extract_positions=False):
         """
         Saves the scores of the docking poses, checks the clustering results and renames the ligands in the
@@ -194,6 +194,7 @@ class Results:
         will be performed only in case save_complex is True too.
         :param end_notation: If the ligands should be renamed so that the cluster number is included at the end. Else
         a number before the docking number is exchanged for the cluster number.
+        :param cluster_threshold: The threshold for cluster extraction in angstroms.
         :param save_complex: True if the ligand-protein complexes should also be generated.
         :param clean_complex: Clean the complexes from doubles of chains.
         :param extract_positions: Extract the positions of ligands in the relative coordinate system.
@@ -206,7 +207,12 @@ class Results:
         # ....scores are already saved, so the analysis can be resumed at any point!!
         scores.to_csv(Path(self.settings.output_directory, "Ligand scores.csv"), index=False)
 
-        clusters = self.clusters_extraction()
+        clusters = self.clusters_extraction(threshold=cluster_threshold)
+
+        # Adding the clusters into the scores DataFrame
+        scores["Cluster"] = 1
+        for cluster_index, indices in enumerate(clusters):
+            scores.loc[[int(i)-1 for i in indices], "Cluster"] = cluster_index+1
 
         # Reading the output file with the docked molecules and extracting the ligands themselves
         # The ligands are already ordered by score
