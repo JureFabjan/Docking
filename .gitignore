@@ -3,6 +3,7 @@
 *.mol2
 *.conf
 *.log
+*.pyc
 .vscode
 .idea
 Results*
