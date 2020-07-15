@@ -57,9 +57,7 @@ for dihedral_set in aLigand_dihedral loop
 
 endloop;
 
-print temp_header;
 results(1) = swrite['File\t{|\t}', temp_header];
-print results;
 
 i = 2;
 for file in files loop

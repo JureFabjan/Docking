@@ -211,6 +211,7 @@ class Results:
 
         # Adding the clusters into the scores DataFrame
         scores["Cluster"] = 1
+        scores.sort_values(by="goldscore", ascending=False, inplace=True, ignore_index=True)
         for cluster_index, indices in enumerate(clusters):
             scores.loc[[int(i)-1 for i in indices], "Cluster"] = cluster_index+1
 
@@ -385,7 +386,7 @@ class Results:
 
     def moe_position_extract(self):
         """
-        Runs a script, which extrcts the protein-ligand distances and angles in the defined coordinate
+        Runs a script, which extracts the protein-ligand distances and angles in the defined coordinate
         system. Works on an MOE database.
         Currently the distances are specified in the script, but this will be made to be more flexible in the future.
         :return:
@@ -393,6 +394,19 @@ class Results:
         script = Path(_location, "db_Position.svl")
 
         # Preparing the script by including the output path
+        self.adjust_script(script, 11)
+
+        run(["moebatch", "-run", str(script.absolute())], shell=True)
+
+    def moe_all_positions_extract(self):
+        """
+        Runs a script, which extracts the protein-ligand distances and angles in the defined coordinate
+        system for all ligand atoms. Works on an MOE database.
+        :return:
+        """
+
+        script = Path(_location, "db_AllAtomPosition.svl")
+
         self.adjust_script(script, 11)
 
         run(["moebatch", "-run", str(script.absolute())], shell=True)
