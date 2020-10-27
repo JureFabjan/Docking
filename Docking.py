@@ -1,5 +1,6 @@
 import inspect
 import os
+import re
 from pathlib import Path
 from subprocess import run
 
@@ -9,6 +10,7 @@ from ccdc.docking import Docker
 from ccdc.io import MoleculeReader, MoleculeWriter, EntryWriter
 from ccdc.protein import Protein
 from pandas import DataFrame, read_csv, merge
+from shutil import rmtree
 
 # Just getting the script location
 _location = str(Path(inspect.getfile(inspect.currentframe())).parents[0].absolute())
@@ -185,7 +187,7 @@ class Results:
         self.ligands = [x for x in self.results.ligands]
 
     def save(self, end_notation=True, cluster_threshold=3.0, save_complex=False, clean_complex=False, extract_distances=False,
-             extract_positions=False):
+             extract_positions=False, extract_all_positions=False):
         """
         Saves the scores of the docking poses, checks the clustering results and renames the ligands in the
         results .mol2 file to include the clusters. If specified, the ligand-protein complexes of all ligand poses
@@ -198,6 +200,7 @@ class Results:
         :param save_complex: True if the ligand-protein complexes should also be generated.
         :param clean_complex: Clean the complexes from doubles of chains.
         :param extract_positions: Extract the positions of ligands in the relative coordinate system.
+        :param extract_all_positions: Extract the positions of all ligand atoms in the relative coordinate system.
         :return:
         """
         # Collecting the scoring and clusters
@@ -211,7 +214,8 @@ class Results:
 
         # Adding the clusters into the scores DataFrame
         scores["Cluster"] = 1
-        scores.sort_values(by="goldscore", ascending=False, inplace=True, ignore_index=True)
+        # Making sure the scores are ordered by the second column (fitness function score)
+        scores.sort_values(by=self.settings.fitness_function, axis=0, ascending=False, inplace=True, ignore_index=True)
         for cluster_index, indices in enumerate(clusters):
             scores.loc[[int(i)-1 for i in indices], "Cluster"] = cluster_index+1
 
@@ -227,8 +231,6 @@ class Results:
             ligands = [MoleculeReader(str(Path(self.settings.output_directory,
                                                ligand).absolute()))[0] for ligand in ligand_list]
 
-        # Making sure the scores are ordered by the second column (fitness function score)
-        scores.sort_values(by=self.settings.fitness_function, axis=0, ascending=False, inplace=True)
         # Renaming of the ligands to accommodate the clusters
         for i, cluster in enumerate(clusters):
             for ligand in cluster:
@@ -263,7 +265,7 @@ class Results:
             # Adding complexes file names to the scoring data frame
             scores["Complex"] = scores["Identifier"].str.split("dock").str[-1].apply(lambda x: f"Pose_{int(x):03}")
 
-            if extract_distances or extract_positions:
+            if extract_distances or extract_positions or extract_all_positions:
                 # Making the MOE database from the extracted complexes
                 self.moe_complex_import()
 
@@ -284,6 +286,15 @@ class Results:
                 positions = read_csv(Path(self.settings.output_directory, "Complexes", "Results.txt"), sep="\t")
                 positions.rename({"File": "Complex"}, axis=1, inplace=True)
                 scores = merge(scores, positions, on="Complex")
+
+            if extract_all_positions:
+                # Extracting the positions of all ligand atoms
+                self.moe_all_positions_extract()
+
+                # Opening the positions file
+                positions = read_csv(Path(self.settings.output_directory, "Complexes", "Results.txt"), sep="\t")
+                positions.rename({"File": "Complex"}, axis=1, inplace=True)
+                scores = merge(scores, positions, on="Complex") 
 
         # Saving the scores. This is done last because of potential additions to the scores files (i.e. file names,
         # distances etc.)
@@ -335,6 +346,8 @@ class Results:
         """
         # Create base output directory
         output = Path(self.settings.output_directory, "Complexes")
+        if os.path.exists(output):
+            rmtree(output)
         os.mkdir(output)
         # Loop though all the ligands
         for ligand in self.ligands:
@@ -426,6 +439,36 @@ class Results:
                                             line_parts[2]])
         with open(script_file, "w") as script_file_handle:
             script_file_handle.write("\n".join(script_file_text))
+
+    def adjust_coordinate_acids(self, script, center=[], x=[], y=[], z=[]):
+        """
+        Changes the amino acids used for the coordinate system to the defined values. Just the specified positions
+        will be changed, the rest will be kept as is. The coordinates should be given in a list of format
+        [Chain, Name, N, Atom], where Chain is the intiger of chain number, Name is a 3-letter string name of the
+        amino acid (all in capital), N is the intiger delineating the amino acid's position in the chain, and Atom
+        is a string with the name of the amino acid's atom used.
+        :param script: Name of the script (together with the '.svl' ending)
+        :param center: Definition of the central atom
+        :param x: Definition of the atom delineating together with the center the x-axis
+        :param y: Definition of the atom delineating together with the center the y-axis
+        :param z: Definition of the atom delineating together with the center the z-axis
+        """
+        with open(Path(_location, script), "r") as file:
+            script_text = file.read()
+        if len(center) == 4:
+            script_text = re.sub(r"local aCenter = \[\d+,.+,\s\d+,.+\]",
+                                 f"local aCenter = {str(center)}", script_text)
+        if len(x) == 4:
+            script_text = re.sub(r"local aX_axis = \[\d+,.+,\s\d+,.+\]",
+                                 f"local aX_axis = {str(center)}", script_text)
+        if len(y) == 4:
+            script_text = re.sub(r"local aY_axis = \[\d+,.+,\s\d+,.+\]",
+                                 f"local aY_axis = {str(center)}", script_text)
+        if len(z) == 4:
+            script_text = re.sub(r"local aZ_axis = \[\d+,.+,\s\d+,.+\]",
+                                 f"local aZ_axis = {str(center)}", script_text)
+        with open(Path(_location, script), "w") as file:
+            file.write(script_text)
 
 
 if __name__ == "__main__":

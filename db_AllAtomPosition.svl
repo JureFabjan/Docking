@@ -9,7 +9,7 @@ const DEFAULTS = [nogaps:1]; // 1 => ignore gaps
 function main[]
 
 // Working directory
-local working_dir = 'Z:/Ongoing work/Projects/a6 non-review review/Docking/Runs/a1b3/6HUP/PZII028/Complexes';
+local working_dir = 'Z:/Ongoing work/Projects/a6 non-review review/Docking/Runs/a6b3/XHEII17/Complexes';
 
 cd working_dir;
 
@@ -18,10 +18,10 @@ local file = flist[[], '*.mdb'];
 // Defining the coordinate system
 // [Chain, Residue, Residue_number, Residue_atom]
 // USE NUMBERING THAT HAS THE FIRST RESIDUE COUNTED AS 1!!
-local aCenter = [2, 'GLY', 196, 'CA'];
-local aX_axis = [2, 'SER', 193, 'CA'];
-local aY_axis = [2, 'TYR', 198, 'CA'];
-local aZ_axis = [3, 'MET', 108, 'CA'];
+local aCenter = [1, 'GLY', 196, 'CA'];
+local aX_axis = [1, 'SER', 193, 'CA'];
+local aY_axis = [1, 'TYR', 198, 'CA'];
+local aZ_axis = [2, 'MET', 108, 'CA'];
 
 
 // Setting up

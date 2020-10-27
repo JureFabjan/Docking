@@ -18,10 +18,10 @@ local files = flist[[], '*.mdb'];
 // Defining the coordinate system
 // [Chain, Residue, Residue_number, Residue_atom]
 // USE NUMBERING THAT HAS THE FIRST RESIDUE COUNTED AS 1!!
-local aCenter = [2, 'GLY', 196, 'CA'];
-local aX_axis = [2, 'SER', 193, 'CA'];
-local aY_axis = [2, 'TYR', 198, 'CA'];
-local aZ_axis = [3, 'MET', 108, 'CA'];
+local aCenter = [1, 'GLY', 196, 'CA'];
+local aX_axis = [1, 'SER', 193, 'CA'];
+local aY_axis = [1, 'TYR', 198, 'CA'];
+local aZ_axis = [2, 'MET', 108, 'CA'];
 
 // 3 atoms, which will define the ligand position and rotation
 local aLigand_position = ['C13', 'N23', 'C2'];

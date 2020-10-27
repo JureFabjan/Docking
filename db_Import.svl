@@ -8,7 +8,7 @@ const DEFAULTS = [nogaps:1]; // 1 => ignore gaps
 //============================================================================
 function main[]
 
-	cd 'Z:/Ongoing work/Projects/a6 non-review review/Docking/Runs/a1b3/6HUP/DCBS88/Complexes';
+	cd 'Z:/Ongoing work/Projects/a6 non-review review/Docking/Runs/a1b3/6HUP/XHEII087C/Complexes';
 
 	local db_key = db_Open ['Database.mdb', 'create'];
 	db_CreateField [db_key, 'mol', 'molecule'];
