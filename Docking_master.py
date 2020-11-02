@@ -14,13 +14,7 @@ settings = [{"root": r"Z:\Ongoing work\Projects\a6 non-review review\Docking\Run
              "configuration": "gold_template.conf",
              "template_protein": "Template_protein.mol2",
              "template_ligand": "Template_ligand.mol2"}]
-"""
-settings = [{"root": r"Z:\Ongoing work\Projects\a6 non-review review\Docking\Runs\Testing",
-             "ligand_path": r"Z:\Ongoing work\Projects\a6 non-review review\Docking\Templates\Ligands",
-             "configuration": "gold_template.conf",
-             "template_protein": "Template_protein.mol2",
-             "template_ligand": "Template_ligand.mol2"}]
-"""
+
 # Global settings
 process_limit = 5
 n_poses = 10

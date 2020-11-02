@@ -11,7 +11,7 @@ from pathlib import Path
 
 arguments = sys.argv[1:]
 
-root, configuration, template_protein, template_ligand, ligand_path, ligand = arguments
+root, configuration, template_protein, template_ligand, ligand_path, ligand, *_ = arguments
 ligand_path = Path(ligand_path)
 os.chdir(root)
 

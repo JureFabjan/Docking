@@ -204,12 +204,15 @@ class Results:
         :return:
         """
         # Collecting the scoring and clusters
-        scores = self.ligand_score_extraction()
-        # Saving the scores just in case the later-on processing is interrupted
-        # ....Do follow this up by making an automated workaround when the script was interrupted, but the
-        # ....scores are already saved, so the analysis can be resumed at any point!!
-        scores.to_csv(Path(self.settings.output_directory, "Ligand scores.csv"), index=False)
-
+        try:
+            # Trying to extrtact the scores; this works with the API only the first time
+            scores = self.ligand_score_extraction()
+            scores.to_csv(Path(self.settings.output_directory, "Ligand scores.csv"), index=False)
+        except RuntimeError as e:
+            # If there is no score available, the scores try to be extracted from the possibly saved csv
+            scores = read_csv(Path(self.settings.output_directory, "Ligand scores.csv"))
+            scores = scores[scores.columns[0:3]]
+    
         clusters = self.clusters_extraction(threshold=cluster_threshold)
 
         # Adding the clusters into the scores DataFrame
