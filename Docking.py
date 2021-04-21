@@ -62,9 +62,7 @@ class Dock:
         n = 0
         if not output_dir:
             current_dir = Path(".")
-            existing = [str(x)[-2:] for x in current_dir.glob("Results*")]
-            while f"{n:02}" in existing:
-                n += 1
+            n = max((int(str(x)[-2:]) for x in current_dir.glob("Results*"))) + 1
             output_dir = Path(current_dir, f"Results_{n:02}")
             os.mkdir(output_dir)
             self.settings.output_directory = str(output_dir.absolute())
@@ -72,6 +70,11 @@ class Dock:
             if not os.path.isdir(output_dir):
                 os.mkdir(output_dir)
             self.settings.output_directory = output_dir
+            # Setting n:
+            #   if the name of the dir ends with n, then that number is used
+            numbers = re.findall(r"\d+\s*$", output_dir)
+            if numbers:
+                n = int(numbers[0])
 
         # Setting the file names
         self.settings.output_format = output_format
@@ -208,7 +211,7 @@ class Results:
             # Trying to extrtact the scores; this works with the API only the first time
             scores = self.ligand_score_extraction()
             scores.to_csv(Path(self.settings.output_directory, "Ligand scores.csv"), index=False)
-        except RuntimeError as e:
+        except RuntimeError as _:
             # If there is no score available, the scores try to be extracted from the possibly saved csv
             scores = read_csv(Path(self.settings.output_directory, "Ligand scores.csv"))
             scores = scores[scores.columns[0:3]]
