@@ -1,0 +1,231 @@
+#svl
+
+const DEFAULTS = [nogaps:0]; // 1 => ignore gaps
+
+function MM;
+
+function add_element[atom, element]
+    aSetElement[atom, element];
+    aSetName[atom, tok_cat[element, tok_drop[aName[atom], 1]]];
+    endfunction;
+
+function add_chain [atom, i]
+    local bonds;
+    // add_element[atom, 'C'];
+    // Add_H[atom];
+    // bonds = aBonds[atom];
+    // bonds = bonds(1) | aElement bonds(1) == 'H';
+    // i = i-1;
+    // while i > 0 loop
+    //     add_element[bonds(1), 'C'];
+    //     Add_H[bonds(1)];
+    //     bonds = aBonds[bonds(1)];
+    //     bonds = bonds(1) | aElement bonds(1) == 'H';
+    //     atom = bonds(1);
+    //     i = i-1;
+    // endloop;
+    add_element[atom, 'C'];
+    Add_H[atom];
+    bonds = aBonds[atom];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    if i > 1 then
+        add_chain[bonds(1), i-1];
+    endif;
+    endfunction;
+
+function add_NH [atom]
+    add_element[atom, 'N'];
+    Add_H[atom];
+    endfunction;
+
+function add_iPr [atom]
+    local bonds;
+    add_chain[atom, 1];
+    bonds = aBonds[atom];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    add_chain[bonds(1), 1];
+    add_chain[bonds(2), 1];
+    endfunction;
+
+function add_tBu [atom]
+    local bonds, atom2;
+    add_chain[atom, 1];
+    bonds = aBonds[atom];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    for atom2 in bonds loop
+        add_chain[atom2, 1];
+        endloop;
+    endfunction;
+
+function add_CCH [atom]
+    local bonds;
+    add_element[atom, 'C'];
+    aSetGeometry[atom, 'sp'];
+    Add_H[atom];
+    bonds = aBonds[atom];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    add_element[bonds, 'C'];
+    aSetGeometry[bonds, 'sp'];
+    Add_H[bonds];
+    endfunction;
+
+function add_CF [atom]
+    local bonds, atom2;
+    add_chain[atom, 1];
+    bonds = aBonds[atom];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    for atom2 in bonds loop
+        add_element[atom2, 'F'];
+        endloop;
+    endfunction;
+
+function add_COMe [atom]
+    local bonds;
+    add_element[atom, 'C'];
+    aSetGeometry[atom, 'sp2'];
+    Add_H[atom];
+    bonds = aBonds[atom];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    add_element[bonds(1), 'O'];
+    aSetGeometry[bonds(1), 'sp2'];
+    add_chain[bonds(2), 1];
+    endfunction;
+
+function add_OMe [atom]
+    local bonds;
+    add_element[atom, 'O'];
+    Add_H[atom];
+    bonds = aBonds[atom];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    add_chain[bonds, 1];
+    endfunction;
+
+function add_CN [atom]
+    local bonds;
+    add_element[atom, 'C'];
+    aSetGeometry[atom, 'sp'];
+    Add_H[atom];
+    bonds = aBonds[atom];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    add_element[bonds, 'N'];
+    aSetGeometry[bonds, 'sp'];
+    endfunction;
+
+function add_COOX[atom, extension]
+    local bonds;
+    add_element[atom, 'C'];
+    aSetGeometry[atom, 'sp2'];
+    Add_H[atom];
+    bonds = aBonds[atom];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    add_element[bonds(1), 'O'];
+    aSetGeometry[bonds(1), 'sp2'];
+    add_element[bonds(2), 'O'];
+    Add_H[bonds(2)];
+    bonds = aBonds[bonds(2)];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    if extension > 0 then
+        add_chain[bonds, extension];
+    endif;
+    endfunction;
+
+function add_NO [atom]
+    local bonds;
+    add_element[atom, 'N'];
+    aSetGeometry[atom, 'sp2'];
+    Add_H[atom];
+    bonds = aBonds[atom];
+    bonds = bonds(1) | aElement bonds(1) == 'H';
+    add_element[bonds(1), 'O'];
+    aSetGeometry[bonds(1), 'sp2'];
+    add_element[bonds(2), 'O'];
+    aSetIon[bonds(2), -1];
+    aSetIon[atom, 1];
+    endfunction;
+
+function main[]
+    local substitutions, directory, template, sidechains, i;
+    local position, structure, chain, atoms, atom, name, template_name;
+    local template_substitutions, substitution, dirlist, match;
+    local template_substitution;
+    
+    substitutions = ['H25'];
+    directory = 'C:/Users/Jure/Desktop/Test';
+    template = 'CGS8216_CN26_F27.mol2';
+
+    sidechains = ['F', 'Cl', 'Br', 'Me', 'NH', 'Et', 'Pr', 'iPr', 'tBu', 'CCH', 'CF', 'COMe', 'OMe', 'CN', 'COOH', 'COOMe', 'COOEt', 'NO'];
+
+    template_name = tok_drop[template, -5];
+    template_substitutions = app token fieldsplit[string template_name, "_"];
+    template_substitutions = template_substitutions | template_substitutions <> template_substitutions(1);
+
+    dirlist = flist[directory, '*.mol2'];
+
+    for position in substitutions loop 
+        i = 1;
+        while i < 19 loop
+            substitution = tok_cat[sidechains[i], tok_drop[position, 1]];
+            match = findmatch[tok_cat['*_', substitution, '*'], dirlist];
+            for template_substitution in template_substitutions loop
+                match = findmatch[tok_cat['*_', template_substitution, '*'], match];
+                endloop;
+            
+            if (length match) == 0 then
+                name = tok_cat[tok_drop[template, -5], '_', sidechains[i], tok_drop[position, 1]];
+        
+                structure = Open[tok_cat[directory, '/', template]];
+                chain = Chains[structure];
+                atoms = cAtoms[chain];
+                atom = atoms(1) | aName atoms(1) == position;
+
+                if i == 1 then
+                    add_element[atom, 'F'];
+                elseif i == 2 then
+                    add_element[atom, 'Cl'];
+                elseif i == 3 then
+                    add_element[atom, 'Br'];
+                elseif i == 4 then
+                    add_chain[atom, 1];
+                elseif i == 5 then
+                    add_NH[atom];
+                elseif i == 6 then
+                    add_chain[atom, 2];
+                elseif i == 7 then
+                    add_chain[atom, 3];
+                elseif i == 8 then
+                    add_iPr[atom];
+                elseif i == 9 then
+                    add_tBu[atom];
+                elseif i == 10 then
+                    add_CCH[atom];
+                elseif i == 11 then
+                    add_CF[atom];
+                elseif i == 12 then
+                    add_COMe[atom];
+                elseif i == 13 then
+                    add_OMe[atom];
+                elseif i == 14 then
+                    add_CN[atom];
+                elseif i == 15 then
+                    add_COOX[atom, 0];
+                elseif i == 16 then
+                    add_COOX[atom, 1];
+                elseif i == 17 then
+                    add_COOX[atom, 2];
+                elseif i == 18 then
+                    add_NO[atom];
+                endif;
+
+                MM[];
+
+                
+                cSetName[chain, name];
+                SaveAs[tok_cat[directory, '/', name, '.mol2']];
+                Close[force:1];
+                endif;
+            i = i+1;
+            endloop;
+        endloop;
+endfunction;
+
+#eof
