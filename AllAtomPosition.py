@@ -19,6 +19,11 @@ def compute(folder_path):
     :param folder_path: String or path-like object delineating the folder with PDB files to be analyzed
     :return: pandas.DataFrame with coordinates for all the atoms for all the analyzed files.  
     '''
+    
+    folder_path = Path(folder_path)
+    files = [x for x in os.listdir(folder_path) if x.endswith(".pdb")]
+    s = structure.StructureReader.read(files[0])
+
     # Get the coordinates of the alpha carbons defining the coordinate system
     center = s.findResidue(":".join([str(x) for x in coordinate_system['center']])).getAlphaCarbon()
     axes = {
@@ -27,16 +32,12 @@ def compute(folder_path):
         "gamma": s.findResidue(":".join([str(x) for x in coordinate_system['z']])).getAlphaCarbon()
     }
 
-    folder_path = Path(folder_path)
-    files = [x for x in os.listdir(folder_path) if x.endswith(".pdb")]
-
     # Constructing the results table
-    s = structure.StructureReader.read(files[0])
     ligand_chain = [x for x in s.chain if len(x.residue) == 1][0]
 
     columns = ["Complex"]
     for ligand_atom in ligand_chain.atom:
-        columns.extend(["_".join((ligand_atom.property["s_m_pdb_atom_name"].strip(), x)) for x in list(axes.keys()) + ["distance"]])
+        columns.extend(["_".join((ligand_atom.property["s_m_pdb_atom_name"].strip(), x)) for x in list(axes) + ["distance"]])
     results = pandas.DataFrame({c: v for c, v in zip(columns, [[x.split(".")[0] for x in files]] + [[0 for _ in files] for _ in columns[1:]])}, columns=columns)
     results.index = results["Complex"]
 
