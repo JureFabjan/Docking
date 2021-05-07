@@ -156,8 +156,8 @@ class Dock:
                 self.settings.output_directory, f"{protein.identifier}_clean.mol2"
             )
 
-        with EntryWriter(clean_protein_file) as writer:
-            writer.write(protein)
+        writer = EntryWriter(clean_protein_file) 
+        writer.write(protein)
         self.settings.add_protein_file(clean_protein_file)
         
         return ligands
@@ -171,9 +171,9 @@ class Dock:
             if not self.ligands:
                 raise RuntimeError("No ligand file given and no ligands in the protein.")
             self.template_ligand = os.path.join(self.settings.output_directory, "protein_ligands.mol2")
-            with EntryWriter(self.template_ligand) as writer:
-                for p_ligand in self.ligands:
-                    writer.write(p_ligand)
+            writer = EntryWriter(self.template_ligand)
+            for p_ligand in self.ligands:
+                writer.write(p_ligand)
         self.settings.binding_site = self.settings.BindingSiteFromLigand(self.settings.proteins[0],
                                                                          MoleculeReader(self.template_ligand)[0],
                                                                          self.site_radius)
@@ -229,8 +229,8 @@ class Results:
         # The ligands are already ordered by score
         if self.settings.output_file:
             # In case the output file was not split
-            with MoleculeReader(self.settings.output_file) as docked_ligands:
-                ligands = [ligand for ligand in docked_ligands]
+            docked_ligands = MoleculeReader(self.settings.output_file)
+            ligands = [ligand for ligand in docked_ligands]
         else:
             # In case there is no single output file in the docking
             ligand_list = [fname for fname in os.listdir(self.settings.output_directory) if fname.startswith("gold_soln_")]
@@ -253,17 +253,17 @@ class Results:
 
         if self.settings.output_file:
             # Saving ligands into a single file, if the output_file is defined
-            with MoleculeWriter(self.settings.output_file) as docked_ligands:
-                for ligand in ligands:
-                    docked_ligands.write(ligand)
+            docked_ligands = MoleculeWriter(self.settings.output_file)
+            for ligand in ligands:
+                docked_ligands.write(ligand)
         else:
             # Ligands were initially saved into separate files, so we save them into appropriate files again.
             # A merged file is also created and filled with the ligands
-            with MoleculeWriter(str(Path(self.settings.output_directory, "Merged.mol2").absolute())) as docked_ligands:
-                for fname, ligand in zip(ligand_list, ligands):
-                    docked_ligands.write(ligand)
-                    with MoleculeWriter(str(Path(self.settings.output_directory, fname).absolute())) as current_ligand:
-                        current_ligand.write(ligand)
+            docked_ligands = MoleculeWriter(str(Path(self.settings.output_directory, "Merged.mol2").absolute()))
+            for fname, ligand in zip(ligand_list, ligands):
+                docked_ligands.write(ligand)
+                current_ligand = MoleculeWriter(str(Path(self.settings.output_directory, fname).absolute()))
+                current_ligand.write(ligand)
 
         if save_complex:
             self.save_ligand_complexes(clean_complex)
@@ -360,10 +360,10 @@ class Results:
             # Extract the ligand docking number from its identifier
             n = int(ligand.identifier.split("dock")[-1].split("|")[0])
             # Save
-            with EntryWriter(str(Path(output, f"Pose_{n:03}.pdb"))) as protein_writer:
-                complex = self.results.make_complex(ligand)
-                complex.remove_unknown_atoms()
-                protein_writer.write(complex)
+            protein_writer = EntryWriter(str(Path(output, f"Pose_{n:03}.pdb")))
+            complex = self.results.make_complex(ligand)
+            complex.remove_unknown_atoms()
+            protein_writer.write(complex)
         
         if clean_complex:
             # The PDBParser cannot parse residues with the same numbering, so it just retains the correct ones.
@@ -385,10 +385,9 @@ class Results:
         """
         script = Path(_location, "db_Import.svl")
 
-        # Preparing the script by including the output path
-        self.adjust_script(script, 10)
-
-        run(["moebatch", "-run", str(script.absolute())], shell=True)
+        run(["moebatch", "-run", str(script.absolute()),
+             "-d", str(Path(self.settings.output_directory, "Complexes").absolute()).replace(os.sep, "/")],
+            shell=True)
 
     def moe_distance_extract(self):
         """
@@ -417,7 +416,7 @@ class Results:
 
         run(["moebatch", "-run", str(script.absolute())], shell=True)
 
-    def moe_all_positions_extract(self):
+    def moe_all_positions_extract(self, center=[1, "GLY", 196, "CA"], x_axis=[1, "SER", 193, "CA"], y_axis=[1, "TYR", 198, "CA"], z_axis=[2, "MET", 106, "CA"]):
         """
         Runs a script, which extracts the protein-ligand distances and angles in the defined coordinate
         system for all ligand atoms. Works on an MOE database.
@@ -426,9 +425,14 @@ class Results:
 
         script = Path(_location, "db_AllAtomPosition.svl")
 
-        self.adjust_script(script, 11)
+        # self.adjust_script(script, 11)
 
-        run(["moebatch", "-run", str(script.absolute())], shell=True)
+        run(["moebatch", "-run", str(script.absolute()),
+             "-d", str(Path(self.settings.output_directory, "Complexes").absolute()).replace(os.sep, "/")] +
+             construct_list("-c", [str(c) for c in center]) +
+             construct_list("-x", [str(x) for x in x_axis]) +
+             construct_list("-y", [str(y) for y in y_axis]) +
+             construct_list("-z", [str(z) for z in z_axis]), shell=True)
 
     def adjust_script(self, script_file, line):
         """
@@ -476,6 +480,10 @@ class Results:
         with open(Path(_location, script), "w") as file:
             file.write(script_text)
 
+def construct_list(tag, l):
+    result = [tag] * (len(l)*2)
+    result[1::2] = l
+    return result
 
 if __name__ == "__main__":
     os.chdir(Path(".", "a1g2"))

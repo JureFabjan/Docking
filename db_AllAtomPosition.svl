@@ -9,7 +9,7 @@ const DEFAULTS = [nogaps:1]; // 1 => ignore gaps
 function main[]
 
 // Working directory
-local working_dir = 'Z:/Ongoing work/Projects/a6 non-review review/Docking/Runs/a6b3/XHEII17/Complexes';
+local working_dir = ArgvPull[['-d'], [1]];
 
 cd working_dir;
 
@@ -18,11 +18,13 @@ local file = flist[[], '*.mdb'];
 // Defining the coordinate system
 // [Chain, Residue, Residue_number, Residue_atom]
 // USE NUMBERING THAT HAS THE FIRST RESIDUE COUNTED AS 1!!
-local aCenter = [1, 'GLY', 196, 'CA'];
-local aX_axis = [1, 'SER', 193, 'CA'];
-local aY_axis = [1, 'TYR', 198, 'CA'];
-local aZ_axis = [2, 'MET', 108, 'CA'];
-
+local aCenter, aX_axis, aY_axis, aZ_axis;
+[aCenter, aX_axis, aY_axis, aZ_axis] = ArgvPull[['-c', '-x', '-y', '-z'], [1, 1, 1, 1]];
+aCenter[[1, 3]] = atof aCenter[[1, 3]];
+aX_axis[[1, 3]] = atof aX_axis[[1, 3]];
+aY_axis[[1, 3]] = atof aY_axis[[1, 3]];
+aZ_axis[[1, 3]] = atof aZ_axis[[1, 3]];
+print aCenter;
 
 // Setting up
 local results, results_temp, chains, aLigand, i, j;
@@ -69,9 +71,6 @@ for entry_key in entries loop
 	// Getting the atoms from a chain with lowest number of residues.
 	// Supposes that the ligand is a separate chain, which is the only one to contain a single residue.
 	aLigand = cat cAtoms chains(x_min app length app first app cResidues chains);		
-
-	// print 'Checking the following structure:';
-	// print read(1)(2)(1)(1);
 	
 	// Getting the chain residues
 	rProtein = cResidues chains;
@@ -79,8 +78,6 @@ for entry_key in entries loop
 	// Getting the atom in the center of the coordinate system
 	rCentral = rAtoms rProtein(aCenter(1)) | (rName rProtein(aCenter(1)) == aCenter(2)) and (rNumber rProtein(aCenter(1)) == aCenter(3));
 	aCentral = rCentral(1) | aName rCentral(1) == aCenter(4);
-	// print 'Central atom';
-	// print aCentral;
 		
 	// Checking of the specified atoms
 	j = 2;
@@ -111,11 +108,7 @@ endloop;
 
 dbv_Close[db_key];
 
-print 'Results:';
-print results;
-
 fwrite['Results.txt', '{|\n}', results];
-
 endfunction
 
 #eof
