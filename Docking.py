@@ -271,13 +271,17 @@ class Results:
             # Adding complexes file names to the scoring data frame
             scores["Complex"] = scores["Identifier"].str.split("dock").str[-1].apply(lambda x: f"Pose_{int(x):03}")
 
+            scripts = {"Import": "db_Import.svl",
+                       "Distances": "db_Distance.svl",
+                       "Positions": "db_Position.svl"}
+
             if extract_distances or extract_positions or extract_all_positions:
                 # Making the MOE database from the extracted complexes
-                self.moe_complex_import()
+                self.moe_run_script(scripts["Import"])
 
             if extract_distances:
                 # Extracting the distances between the ligands and protein from the database
-                self.moe_distance_extract()
+                self.moe_run_script(scripts["Distances"])
 
                 # Opening the distances file
                 distances = read_csv(Path(self.settings.output_directory, "Complexes", "Results.txt"), sep="\t")
@@ -286,7 +290,7 @@ class Results:
 
             if extract_positions:
                 # Extracting the ligand positions
-                self.moe_position_extract()
+                self.moe_run_script(scripts["Positions"])
 
                 # Opening the positions file
                 positions = read_csv(Path(self.settings.output_directory, "Complexes", "Results.txt"), sep="\t")
@@ -376,41 +380,12 @@ class Results:
                 saver.set_structure(structure)
                 saver.save(structure_path)
 
-    def moe_complex_import(self):
+    def moe_run_script(self, script):
         """
-        In essence the function activates an MOE script, which imports all the .pdb files in a folder into a
-        database called 'database.mdb', which is created in the same folder. In the context of the results,
-        this function creates a database with all the generated complex files.
+        Runs the specified script with arguments. Currently the supported argument is '-d <path-to-target-folder>'
         :return:
         """
-        script = Path(_location, "db_Import.svl")
-
-        run(["moebatch", "-run", str(script.absolute()),
-             "-d", str(Path(self.settings.output_directory, "Complexes").absolute()).replace(os.sep, "/")],
-            shell=True)
-
-    def moe_distance_extract(self):
-        """
-        Runs a script, which extracts the specific protein-ligand distances from a MOE database.
-        Currently the distances are specified in the script, but this will be more flexible in the future.
-        :return:
-        """
-        script = Path(_location, "db_Distance.svl")
-
-        run(["moebatch", "-run", str(script.absolute()),
-             "-d", str(Path(self.settings.output_directory, "Complexes").absolute()).replace(os.sep, "/")],
-            shell=True)
-
-    def moe_position_extract(self):
-        """
-        Runs a script, which extracts the protein-ligand distances and angles in the defined coordinate
-        system. Works on an MOE database.
-        Currently the distances are specified in the script, but this will be made to be more flexible in the future.
-        :return:
-        """
-        script = Path(_location, "db_Position.svl")
-
-        run(["moebatch", "-run", str(script.absolute()),
+        run(["moebatch", "-run", str(Path(_location, script).absolute()),
              "-d", str(Path(self.settings.output_directory, "Complexes").absolute()).replace(os.sep, "/")],
             shell=True)
 
