@@ -397,10 +397,9 @@ class Results:
         """
         script = Path(_location, "db_Distance.svl")
 
-        # Preparing the script by including the output path
-        self.adjust_script(script, 11)
-
-        run(["moebatch", "-run", str(script.absolute())], shell=True)
+        run(["moebatch", "-run", str(script.absolute()),
+             "-d", str(Path(self.settings.output_directory, "Complexes").absolute()).replace(os.sep, "/")],
+            shell=True)
 
     def moe_position_extract(self):
         """
@@ -411,10 +410,9 @@ class Results:
         """
         script = Path(_location, "db_Position.svl")
 
-        # Preparing the script by including the output path
-        self.adjust_script(script, 11)
-
-        run(["moebatch", "-run", str(script.absolute())], shell=True)
+        run(["moebatch", "-run", str(script.absolute()),
+             "-d", str(Path(self.settings.output_directory, "Complexes").absolute()).replace(os.sep, "/")],
+            shell=True)
 
     def moe_all_positions_extract(self, center=[1, "GLY", 196, "CA"], x_axis=[1, "SER", 193, "CA"], y_axis=[1, "TYR", 198, "CA"], z_axis=[2, "MET", 106, "CA"]):
         """

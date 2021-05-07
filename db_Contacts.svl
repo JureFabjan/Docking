@@ -10,7 +10,7 @@ function pro_Contacts, MM;
 function main[]
 
 // Working directory
-local working_dir = 'Z:/Ongoing work/Projects/a6 non-review review/Docking/Runs/a1b3/DCBS76/Complexes';
+local working_dir = ArgvPull[['-d'], [1]];
 
 cd working_dir;
 
