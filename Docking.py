@@ -215,15 +215,19 @@ class Results:
             # If there is no score available, the scores try to be extracted from the possibly saved csv
             scores = read_csv(Path(self.settings.output_directory, "Ligand scores.csv"))
             scores = scores[scores.columns[0:3]]
-    
-        clusters = self.clusters_extraction(threshold=cluster_threshold)
 
-        # Adding the clusters into the scores DataFrame
-        scores["Cluster"] = 1
-        # Making sure the scores are ordered by the second column (fitness function score)
-        scores.sort_values(by=self.settings.fitness_function, axis=0, ascending=False, inplace=True, ignore_index=True)
-        for cluster_index, indices in enumerate(clusters):
-            scores.loc[[int(i)-1 for i in indices], "Cluster"] = cluster_index+1
+        try:
+            clusters = self.clusters_extraction(threshold=cluster_threshold)
+
+            # Adding the clusters into the scores DataFrame
+            scores["Cluster"] = 1
+            # Making sure the scores are ordered by the second column (fitness function score)
+            scores.sort_values(by=self.settings.fitness_function, axis=0, ascending=False, inplace=True, ignore_index=True)
+            for cluster_index, indices in enumerate(clusters):
+                scores.loc[[int(i)-1 for i in indices], "Cluster"] = cluster_index+1
+        except AttributeError as _:
+            # Accounting for the inability to extract clusters
+            scores["Cluster"] = -1
 
         # Reading the output file with the docked molecules and extracting the ligands themselves
         # The ligands are already ordered by score
@@ -248,7 +252,8 @@ class Results:
                     # Original name: Template_name|Molecule|mol2|1|dockN
                     # Constructed name: Templ_name|Molecule|mol2|cluster|dockN
                     name = ligands[ligand-1].identifier.split("|")
-                    name = "|".join(name[:-2] + [str(i+1)] + name[-1:])
+                    name[-2:-2] = str(i+1)
+                    name = "|".join(name)
                 ligands[ligand-1].identifier = name
 
         if self.settings.output_file:
