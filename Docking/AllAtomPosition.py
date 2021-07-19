@@ -4,19 +4,19 @@ from pathlib import Path
 
 # Global settings
 # Definition of the coordinate system. The numbering is as found in the molecular viewer.
-coordinate_system = {
+_coordinate_system = {
     "center": ("A", 208),
     "x": ("A", 205),
     "y": ("A", 210),
     "z": ("E", 115)
 }
 
-
-def compute(folder_path):
+def compute(folder_path, coordinate_system=_coordinate_system):
     '''
     Function calculating the coordinates of all the ligand atoms for all the given structures.
     The function calculates the angles to the three coordinate axes and the distance of the atom to the center.
     :param folder_path: String or path-like object delineating the folder with PDB files to be analyzed
+    :param coordinate_system: A dictionary of tuples defining the coordinate system. Needed keys are center, x, y and z. Tuples have the structure (chain_name, position)
     :return: pandas.DataFrame with coordinates for all the atoms for all the analyzed files.  
     '''
     

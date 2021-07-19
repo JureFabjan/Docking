@@ -1,0 +1,15 @@
+biopython
+inspect
+os
+re
+pathlib
+subprocess
+ccdc
+pandas
+shutil
+collections
+sys
+time
+io
+urllib
+numpy

@@ -11,6 +11,7 @@ from ccdc.io import MoleculeReader, MoleculeWriter, EntryWriter
 from ccdc.protein import Protein
 from pandas import DataFrame, read_csv, merge
 from shutil import rmtree
+from .Molecule_generation import construct_list
 
 # Just getting the script location
 _location = str(Path(inspect.getfile(inspect.currentframe())).parents[0].absolute())
@@ -390,7 +391,7 @@ class Results:
         Runs the specified script with arguments. Currently the supported argument is '-d <path-to-target-folder>'
         :return:
         """
-        run(["moebatch", "-run", str(Path(_location, script).absolute()),
+        run(["moebatch", "-run", str(Path(_location,"svl_scripts", script).absolute()),
              "-d", str(Path(self.settings.output_directory, "Complexes").absolute()).replace(os.sep, "/")],
             shell=True)
 
@@ -401,9 +402,7 @@ class Results:
         :return:
         """
 
-        script = Path(_location, "db_AllAtomPosition.svl")
-
-        # self.adjust_script(script, 11)
+        script = Path(_location, "svl_scripts", "db_AllAtomPosition.svl")
 
         run(["moebatch", "-run", str(script.absolute()),
              "-d", str(Path(self.settings.output_directory, "Complexes").absolute()).replace(os.sep, "/")] +
@@ -441,7 +440,7 @@ class Results:
         :param y: Definition of the atom delineating together with the center the y-axis
         :param z: Definition of the atom delineating together with the center the z-axis
         """
-        with open(Path(_location, script), "r") as file:
+        with open(Path(_location, "svl_scripts", script), "r") as file:
             script_text = file.read()
         if len(center) == 4:
             script_text = re.sub(r"local aCenter = \[\d+,.+,\s\d+,.+\]",
@@ -455,13 +454,9 @@ class Results:
         if len(z) == 4:
             script_text = re.sub(r"local aZ_axis = \[\d+,.+,\s\d+,.+\]",
                                  f"local aZ_axis = {str(center)}", script_text)
-        with open(Path(_location, script), "w") as file:
+        with open(Path(_location, "svl_scripts", script), "w") as file:
             file.write(script_text)
 
-def construct_list(tag, l):
-    result = [tag] * (len(l)*2)
-    result[1::2] = l
-    return result
 
 if __name__ == "__main__":
     os.chdir(Path(".", "a1g2"))
