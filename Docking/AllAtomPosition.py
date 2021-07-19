@@ -1,4 +1,7 @@
-from schrodinger import structure
+try:
+    from schrodinger import structure
+except ModuleNotFoundError:
+    print("Note, schrodinger is not installed. AllAtomPosition will not work!")
 import numpy, pandas, os
 from pathlib import Path
 

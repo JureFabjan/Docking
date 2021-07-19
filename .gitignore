@@ -6,6 +6,8 @@
 *.pyc
 .vscode
 .idea
+dist
+docking.egg-info
 Results*
 !/Protein.mol2
 !/Ligand.mol2
