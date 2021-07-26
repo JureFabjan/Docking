@@ -74,14 +74,3 @@ class Master:
                         else:
                             while len([x for x in os.listdir(Path(root, output_dirs[0])) if x.startswith("gold_soln")]) < max((self.n_poses/self.process_limit*len(processes), 5)):
                                 time.sleep(60)
-
-
-if __name__ == "__main__":
-    settings = [{"root": r"Z:\Ongoing work\Projects\a6 non-review review\Docking\Runs\Replication experiment",
-                "ligand_path": r"Z:\Ongoing work\Projects\a6 non-review review\Docking\Templates\Ligands",
-                "configuration": "gold_template.conf",
-                "template_protein": "Template_protein.mol2",
-                "template_ligand": "Template_ligand.mol2"}
-                ]
-    master = Master(settings, ligands=["PZII029.mol2"])
-    master.run()

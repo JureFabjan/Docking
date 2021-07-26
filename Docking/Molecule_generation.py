@@ -41,7 +41,7 @@ def generate(folder, total_substitutions, substitutions, sidechains, prohibited,
                         construct_list("-c", sidechains_current), shell=True)
 
 if __name__ == "__main__":
-    folder = Path(r"C:\Users\Jure\Desktop\Test")
+    folder = os.curdir()
     total_substitutions = 2
     substitutions = ["H25", "H26", "H27", "H30", "H19", "H20", "H1"]
     sidechains = {'F', 'Cl', 'Br', 'Me', 'NH', 'Et', 'Pr', 'iPr', 'tBu', 'CCH', 'CF', 'COMe', 'OMe', 'CN', 'COOH', 'COOMe', 'COOEt', 'NO'}

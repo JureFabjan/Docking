@@ -456,25 +456,3 @@ class Results:
                                  f"local aZ_axis = {str(center)}", script_text)
         with open(Path(_location, "svl_scripts", script), "w") as file:
             file.write(script_text)
-
-
-if __name__ == "__main__":
-    os.chdir(Path(".", "a1g2"))
-    _protein_file = "Source_protein.mol2"
-    _protein_ligand_file = "Source_molecule.mol2"
-    _ligand_file = "DCBSPU19.mol2"
-    _dock = Dock(_protein_file,
-                 _ligand_file,
-                 template_ligand=_protein_ligand_file,
-                 ndocks=10,
-                 autoscale=10,
-                 # configuration="gold.conf",
-                 early_termination=False,
-                 split_output=False)
-                 # overwrite_protein=True)
-
-    _results = Results(_dock.settings.conf_file)
-    _results.save(save_complex=True,
-                  clean_complex=True,
-                  extract_distances=True,
-                  extract_positions=True)
