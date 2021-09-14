@@ -1,4 +1,4 @@
-from . import Docking
+from Docking import Docking_main
 import os, sys, time
 from pathlib import Path
 
@@ -14,15 +14,15 @@ def dock(root, configuration, template_protein, template_ligand, ligand_path, li
     """
     os.chdir(root)
 
-    run = Docking.Dock(template_protein,
-                        str(Path(ligand_path, ligand).absolute()),
-                        template_ligand=template_ligand,
-                        fitness_fun="chemscore", rescore_fun="asp",
-                        site_radius=7,
-                        output_dir=str(Path(root, out_dir).absolute()),
-                        ndocks=200, autoscale=200, early_termination=False,
-                        configuration=configuration, overwrite_protein=False)
-    results = Docking.Results(run.settings.conf_file)
+    run = Docking_main.Dock(template_protein,
+                            str(Path(ligand_path, ligand).absolute()),
+                            template_ligand=template_ligand,
+                            fitness_fun="chemscore", rescore_fun="asp",
+                            site_radius=7,
+                            output_dir=str(Path(root, out_dir).absolute()),
+                            ndocks=200, autoscale=200, early_termination=False,
+                            configuration=configuration, overwrite_protein=False)
+    results = Docking_main.Results(run.settings.conf_file)
     results.save(save_complex=True, clean_complex=True, extract_all_positions=True)
 
     print("Done")

@@ -30,7 +30,7 @@ def generate(folder, total_substitutions, substitutions, sidechains, prohibited,
         else:
             organized.append(all - set([y for x in organized for y in x]))
         for ligand in organized[-1]:
-            substitutions_current = {s for s in substitutions if not re.findall(f"[A-z]+{s[1:]}[_|\.]", ligand)}
+            substitutions_current = {s for s in substitutions if not re.findall(f"[A-z]+{s[1:]}[_|.]", ligand)}
             for position in substitutions_current:
                 sidechains_current = sidechains - prohibited[position]
                 run(["moebatch",

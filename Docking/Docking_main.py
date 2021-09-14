@@ -11,7 +11,7 @@ from ccdc.io import MoleculeReader, MoleculeWriter, EntryWriter
 from ccdc.protein import Protein
 from pandas import DataFrame, read_csv, merge
 from shutil import rmtree
-from .Molecule_generation import construct_list
+from Docking.Molecule_generation import construct_list
 
 # Just getting the script location
 _location = str(Path(inspect.getfile(inspect.currentframe())).parents[0].absolute())
