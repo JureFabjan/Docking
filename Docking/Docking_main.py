@@ -191,7 +191,7 @@ class Results:
         self.ligands = [x for x in self.results.ligands]
 
     def save(self, end_notation=True, cluster_threshold=3.0, save_complex=False, clean_complex=False, extract_distances=False,
-             extract_positions=False, extract_all_positions=False):
+             extract_positions=False, extract_all_positions=False, coordinate_system=None):
         """
         Saves the scores of the docking poses, checks the clustering results and renames the ligands in the
         results .mol2 file to include the clusters. If specified, the ligand-protein complexes of all ligand poses
@@ -205,6 +205,7 @@ class Results:
         :param clean_complex: Clean the complexes from doubles of chains.
         :param extract_positions: Extract the positions of ligands in the relative coordinate system.
         :param extract_all_positions: Extract the positions of all ligand atoms in the relative coordinate system.
+        :param coordinate_system: A dictionary defining the coordinate system axesa. Keys should be ('center', 'x_axis', 'y_axis', 'z_axis') and as values lists [chain_number, aa_code, residue_number, atom_name]. 
         :return:
         """
         # Collecting the scoring and clusters
@@ -305,7 +306,10 @@ class Results:
 
             if extract_all_positions:
                 # Extracting the positions of all ligand atoms
-                self.moe_all_positions_extract()
+                if coordinate_system is None:
+                    self.moe_all_positions_extract()
+                else:
+                    self.moe_all_positions_extract(**coordinate_system)
 
                 # Opening the positions file
                 positions = read_csv(Path(self.settings.output_directory, "Complexes", "Results.txt"), sep="\t")
