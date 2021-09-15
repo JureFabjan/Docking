@@ -73,4 +73,9 @@ if __name__ == "__main__":
         raise Exception(str(arg_dict))
     if "else" in arg_dict.keys():
         unflagged = arg_dict.pop("else")
+    if "center" in arg_dict.keys():
+        arg_dict["coordinate_system"] = {"center": arg_dict.pop("center"),
+                                         "x_axis": arg_dict.pop("x_axis"),
+                                         "y_axis": arg_dict.pop("y_axis"),
+                                         "z_axis": arg_dict.pop("z_axis")}
     dock(**arg_dict)
