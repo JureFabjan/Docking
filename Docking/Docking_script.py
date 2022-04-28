@@ -1,81 +1,172 @@
-from Docking import Docking_main
-import os, sys
+"""
+Module for streamlining the download of data from SRA.
+
+Usage:
+The tool works through STAtoolkit. If there is no binary downloaded on
+the used machine first run sratoolkit_install(). This will install the
+toolkit into a subfolder of the current working directory.
+
+Once the SRAtoolkit is available, just run download function supplying
+a list of SRR codes to be downloaded.
+
+Possible command line arguments:
+-c: single run code to be downloaded
+-f: path to the folder in which the data should be put
+-t: path to temporary storage of the data before it is transfered
+"""
+import sys
+import subprocess
+import os
 from pathlib import Path
+import tempfile
+from time import sleep
+from datetime import datetime
 from collections import defaultdict
 
-def dock(root, configuration, template_protein, template_ligand, ligand_path, ligand, out_dir, coordinate_system=None):
+class Command:
     """
-    Initializing the docking procedure.
-    :param root: The root directory in which the docking should be done,
-    :param configuration: Path to the configuration file.
-    :param template_protein: Path to the template protein file.
-    :param template_ligand: Path to the template ligand file.
-    :param ligand_path: Path to the ligand.
-    :param out_dir: Path to the output directory.
-    :param coordinate_system: A dictionary defining the coordinate system axesa. Keys should be ('center', 'x_axis', 'y_axis', 'z_axis') and as values lists [chain_number, aa_code, residue_number, atom_name].
+    Wrapper for subprocess.Popen.
+    Mainly written to enable easier switching between parallel and
+    non-parallel commands.
     """
-    os.chdir(root)
+    def __init__(self, command_list, parallel=True):
+        """
+        Initalization of the class instance. It already opens a command instance.
+        
+        Args:
+            command_list (list): A list of strings for composing the total command.
+            See the Popen reference for further detail.
+            parallel (bool, optional): Should the command run in parallel to further code. If True,
+            class initialization will not wait for the command to complete. Defaults to True.
+        """
+        self._subprocess = subprocess.Popen(command_list,
+                                            stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE)
+        
+        self.stderr = ""
+        self.stdout = ""
+        if not parallel:
+            self.stdout, self.stderr = self._subprocess.communicate()
+        self.parallel = parallel
+        
+    def state(self):
+        """
+        Returns the state of the job. If None, the job is still running, else a return code
+        is returned.
 
-    run = Docking_main.Dock(template_protein,
-                            str(Path(ligand_path, ligand).absolute()),
-                            template_ligand=template_ligand,
-                            fitness_fun="chemscore", rescore_fun="asp",
-                            site_radius=7,
-                            output_dir=str(Path(root, out_dir).absolute()),
-                            ndocks=200, autoscale=200, early_termination=False,
-                            configuration=configuration, overwrite_protein=False)
-    results = Docking_main.Results(run.settings.conf_file)
-    results.save(save_complex=True, clean_complex=True, extract_all_positions=True, coordinate_system=coordinate_system)
+        Returns:
+            int or None: Return code or None if the code is not available.
+        """
+        return self._subprocess.poll()
+    
+    def get_returns(self):
+        """
+        Fetches the stdout and stderror of the job.
 
-    print("Done")
+        Returns:
+            tuple: Tuple with stdout and stderr values as strings.
+        """
+        if not (self.stderr or self.stdout):
+            self.stdout, self.stderr = self._subprocess.stdout.readlines(), self._subprocess.stderr.readlines()
+        return self.stdout, self.stderr
+
+
+def sratoolkit_install():
+    """
+    Function for setting up SRAtoolkit in the local folder.
+    It downloads the latest version of the toolkit, untars it and starts the interactive configuration.
+    Does not return anything. 
+    """
+    Command(["wget", "--output-document", "sratoolkit.tar.gz", "http://ftp-trace.ncbi.nlm.nih.gov/sra/sdk/current/sratoolkit.current-ubuntu64.tar.gz"],
+            parallel=False)
+    Command(["tar", "-zxvf", "sratoolkit.tar.gz"],
+            parallel=False)
+    os.remove("sratoolkit.tar.gz")
+    folder_name = [x for x in os.listdir() if os.path.isdir(x) and x.startswith("sratoolkit")][0]
+    os.system(f"{folder_name}/bin/vdb-config -i")
+
+def download(codes, final_path="", temp_path="", toolkit_path=""):
+    """
+    Function for downloading the data from SRA.
+
+    Args:
+        codes (list): List of strings containing SRR codes of runs that should be downloaded.
+        final_path (str, optional): String containing path pointing to where the data should be downloaded.
+        If it is not provided or an empty string, the files will be downloaded to the current folder.
+        Defaults to "".
+        temp_path (str, optional): Path to the temporary file. If left empty defaults to the current working directory.
+        Defaults to "".
+        toolkit_path (str, optional):String containing path to the SRAtoolkit. If not provided it searches 
+        for the toolkit in the current working folder. 
+        Defaults to "".
+
+    Returns:
+        list: A list of completion codes for individual provided codes.
+    """
+    if temp_path:
+        temp_path = Path(temp_path)
+    else:
+        temp_path = Path(".").absolute()
+    if final_path:
+        final_path = Path(final_path)
+    else:
+        final_path = Path(".").absolute()
+    if not toolkit_path:
+        toolkit_path = [x for x in os.listdir() if os.path.isdir(x) and x.startswith("sratoolkit")][0]
+    running = []
+    for code in codes:
+        running.append(Command([toolkit_path + "/bin/fasterq-dump", "--split-files", code, "-O", str(temp_path)],
+                                parallel=True))
+    completion_codes = [x.state() for x in running]
+    t_beginning = datetime.now()
+    while None in completion_codes:
+        sleep(10)
+        print(f"Running time: {str(datetime.now() - t_beginning)}")
+        completion_codes = [x.state() for x in running]
+        print("Completion codes:\n", "\n".join([f"{x}: {y}" for x, y in zip(codes, completion_codes)]))
+    if final_path != temp_path:
+        for file in os.listdir(temp_path):
+            print("Transferring the data")
+            transfer = Command(["pipe", "storage", "mv", temp_path, "-rf"],
+                               parallel=False)
+            print(transfer.get_returns()[0])
+    return completion_codes
 
 def arg_parser(arguments):
     """
-    Parses and organizes the arguments from a sys.argv-like list.
-    :param arguments: A sys.argv-like list of arguments.
-    :return: A defaultdict that can be used for passing to dock() function.
+    Takes a list of arguments passed from the command line and
+    collects them into a dictionary.
+
+    Args:
+        arguments (list): List of arguments ordered as they were specified in the command line.
+
+    Returns:
+        dict: Dictionary where the keys are the command line arguments and the values are lists of values. 
     """
+    arguments = " ".join(arguments).split("-")
     arg_dict = defaultdict(list)
-    skip = False    # A bool telling if the next iteration of the loop should be skipped over because the previous
-                    # iteration contained a flag for a1
-    for a1, a2 in zip(arguments, arguments[1:]):
-        if not skip:
-            if a1.startswith("-"):
-                value = a2
-                key = a1[1:]
-                skip = True
-            else:
-                # The non-flagged arguments get stacked into "else" key in order of the appearance.
-                value = a1
-                key = "else"
-
-            try:
-                # If the second argument can be converted to intiger it should be.
-                # In case the conversion returns ValueError we write the string.
-                arg_dict[key].append(int(value))
-            except ValueError:
-                arg_dict[key].append(value)
-                skip = True
-
-        else:
-            skip = False
-    # Unpacking lists for keys where lists have only one item
-    for key, value in arg_dict.items():
-        if len(value) == 1:
-            arg_dict[key] = value[0]
+    for arg in arguments:
+        code, value = arg.split(" ")
+        arg_dict[code].append(value)
     return arg_dict
 
+def cleanup():
+    """
+    Removal of the SRAtoolkit.
+    """
+    target_folder = [x for x in os.listdir() if os.path.isdir(x) and x.startswith("sratoolkit")]
+    if target_folder:
+        for folder_path in target_folder:
+            os.rmdir(folder_path)
+    
+        
 if __name__ == "__main__":
-    arg_dict = arg_parser(sys.argv[1:])
-    try:
-        ligand_path = Path(arg_dict["ligand_path"])
-    except TypeError as e:
-        raise Exception(str(arg_dict))
-    if "else" in arg_dict.keys():
-        unflagged = arg_dict.pop("else")
-    if "center" in arg_dict.keys():
-        arg_dict["coordinate_system"] = {"center": arg_dict.pop("center"),
-                                         "x_axis": arg_dict.pop("x_axis"),
-                                         "y_axis": arg_dict.pop("y_axis"),
-                                         "z_axis": arg_dict.pop("z_axis")}
-    dock(**arg_dict)
+    codes = arg_parser(sys.argv[1:])
+    sratoolkit_install()
+    for x in ("p", "t"):
+        if not codes[x]:
+            codes[x] = ""
+    download(codes["c"],
+             final_path=codes["p"],
+             temp_path=codes["t"])
+    cleanup()
