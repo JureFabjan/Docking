@@ -53,3 +53,13 @@ Additionally the class accepts:
 - number of times every ligand needs to be run (mainly intended to test the reproducibility of the experiment)
 
 After defining the master, we run `master.run()` function, which runs the experiment through spawning new processes. These first run `Dock` class which performs the docking procedure, followed by the `Results` class which processes the output.
+
+## Citation
+
+The following publication should be cited for using this package:
+
+### Structure-Guided Computational Methods Predict Multiple Distinct Binding Modes for Pyrazoloquinolinones in GABAA Receptors
+
+Fabjan Jure , Koniuszewski Filip , Schaar Benjamin , Ernst Margot; Frontiers in Neuroscience, 2021
+
+Link: https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2020.611953
